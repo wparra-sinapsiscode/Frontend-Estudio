@@ -244,9 +244,12 @@ renderInvoicesTable = function() {
       invoice.id
     }"><i class="fas fa-edit"></i></div><div class="action-btn delete-btn" data-action="delete" data-invoice-id="${
       invoice.id
-    }"><i class="fas fa-trash"></i></div><div class="action-btn payment-btn" data-action="payment" data-invoice-id="${
-      invoice.id
-    }"><i class="fas fa-money-bill-wave"></i></div>${
+    }"><i class="fas fa-trash"></i></div>${
+      // 🎯 MEJORA: Inhabilitar botón de pago si está completamente pagada
+      invoice.status === 'pagada' 
+        ? `<div class="action-btn payment-btn disabled" title="Pago completado" style="opacity: 0.5; cursor: not-allowed;"><i class="fas fa-check-circle"></i></div>`
+        : `<div class="action-btn payment-btn" data-action="payment" data-invoice-id="${invoice.id}" title="Agregar pago"><i class="fas fa-money-bill-wave"></i></div>`
+    }${
       invoice.document
         ? `<div class="action-btn download-btn" data-action="download" data-invoice-id="${invoice.id}"><i class="fas fa-download"></i></div>`
         : ""
@@ -952,6 +955,17 @@ openPartialPaymentModal = async function(invoiceId) {
       return;
     }
 
+    // 🎯 MEJORA: Verificar si la factura ya está completamente pagada
+    const totalAmount = typeof invoice.amount === 'number' ? invoice.amount : parseFloat(invoice.amount) || 0;
+    const paidAmount = typeof invoice.paidAmount === 'number' ? invoice.paidAmount : parseFloat(invoice.paidAmount) || 0;
+    const pendingAmount = totalAmount - paidAmount;
+    
+    if (invoice.status === 'pagada' || pendingAmount <= 0) {
+      console.log('🔍 DEBUG openPartialPaymentModal - Factura ya está pagada');
+      showToast("info", "Información", "Esta factura ya está completamente pagada");
+      return;
+    }
+
     const paymentInvoiceNumberEl = document.getElementById("payment-invoice-number");
     const paymentInvoiceIdEl = document.getElementById("payment-invoice-id");
     
@@ -962,11 +976,6 @@ openPartialPaymentModal = async function(invoiceId) {
     
     if (paymentInvoiceNumberEl) paymentInvoiceNumberEl.textContent = invoice.number;
     if (paymentInvoiceIdEl) paymentInvoiceIdEl.value = invoice.id;
-    
-    // Validar y formatear montos con valores por defecto
-    const totalAmount = typeof invoice.amount === 'number' ? invoice.amount : parseFloat(invoice.amount) || 0;
-    const paidAmount = typeof invoice.paidAmount === 'number' ? invoice.paidAmount : parseFloat(invoice.paidAmount) || 0;
-    const pendingAmount = totalAmount - paidAmount;
     
     console.log('🔍 DEBUG openPartialPaymentModal - Datos originales de la factura:', {
       'invoice.amount': invoice.amount,
@@ -1017,7 +1026,9 @@ openPartialPaymentModal = async function(invoiceId) {
         '<div class="empty-payments">No hay pagos registrados.</div>';
     }
 
-    document.getElementById("payment-amount").value = "";
+    // 🎯 MEJORA: Campo de monto se llena automáticamente con el monto pendiente
+    document.getElementById("payment-amount").value = pendingAmount.toFixed(2);
+    document.getElementById("payment-amount").setAttribute("max", pendingAmount.toFixed(2));
     document.getElementById("payment-notes").value = "";
     document.getElementById("payment-method").value = "efectivo";
 
@@ -1151,6 +1162,14 @@ handlePartialPaymentSubmit = async function(event) {
     const pendingAmount = totalAmount - paidAmount;
     
     console.log('🔍 DEBUG: Montos calculados:', { totalAmount, paidAmount, pendingAmount, amount });
+    
+    // 🎯 MEJORA: Verificar si la factura ya está completamente pagada
+    if (invoice.status === 'pagada' || pendingAmount <= 0) {
+      console.log('❌ DEBUG: Factura ya está pagada');
+      showToast("info", "Información", "Esta factura ya está completamente pagada");
+      closeModal("partial-payment-modal");
+      return;
+    }
     
     if (amount > pendingAmount + 0.001) {
       console.log('❌ DEBUG: Pago excede monto pendiente');
@@ -2124,6 +2143,11 @@ function setupInvoiceActionListeners() {
         }
         break;
       case 'payment':
+        // 🎯 MEJORA: Verificar si el botón está deshabilitado antes de abrir modal
+        if (actionBtn.classList.contains('disabled')) {
+          showToast('info', 'Información', 'Esta factura ya está completamente pagada');
+          return;
+        }
         console.log('Ejecutando openPartialPaymentModal...');
         if (typeof openPartialPaymentModal === 'function') {
           openPartialPaymentModal(invoiceId);
