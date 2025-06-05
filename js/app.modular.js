@@ -2726,64 +2726,66 @@ async function loadUpcomingDeadlines() {
     const API_BASE_URL = "http://localhost:5000/api";
     const today = new Date();
 
-    // OBTENER DATOS REALES DE LA BASE DE DATOS CON RELACIONES
-    const [contractedServicesResponse, invoicesResponse] = await Promise.all([
-      fetchWithAuth(`${API_BASE_URL}/contracted-services?status=activo&include=client,service`),
-      fetchWithAuth(`${API_BASE_URL}/invoices?include=client,service`), // Para verificar facturas pagadas
-    ]);
+    // OBTENER TODAS LAS FACTURAS DE LA BASE DE DATOS
+    const invoicesResponse = await fetchWithAuth(`${API_BASE_URL}/invoices?include=client,service`);
 
     const upcomingPayments = [];
-    console.log("🔍 DEBUG: Servicios contratados recibidos desde BD:", contractedServicesResponse.data?.length || 0);
-    console.log("🔍 DEBUG: Facturas recibidas desde BD:", invoicesResponse.data?.length || 0);
+    console.log("🔍 DEBUG: Total facturas recibidas:", invoicesResponse.data?.length || 0);
 
-    // FILTRO INTELIGENTE: Solo servicios contratados SIN factura pagada
-    const allInvoices = invoicesResponse.data || [];
-    
-    if (contractedServicesResponse.data && contractedServicesResponse.data.length > 0) {
-      contractedServicesResponse.data.forEach((cs) => {
-        // VALIDACIÓN ESTRICTA: Solo servicios con datos completos de la BD
-        if (!cs.nextPayment || !cs.id || cs.status !== 'activo') {
-          console.log("🔍 DEBUG: Saltando servicio sin datos válidos:", cs.id);
+    // PROCESAR TODAS LAS FACTURAS
+    if (invoicesResponse.data && invoicesResponse.data.length > 0) {
+      invoicesResponse.data.forEach((invoice) => {
+        // Validar datos básicos
+        if (!invoice.dueDate || !invoice.id || invoice.deletedAt) {
           return;
         }
-        
-        // FILTRO INTELIGENTE: Verificar si este servicio ya tiene factura pagada
-        const hasPayedInvoice = allInvoices.some(invoice => 
-          invoice.clientId === cs.clientId && 
-          invoice.serviceId === cs.serviceId && 
-          invoice.status === 'pagada' &&
-          !invoice.deletedAt // No eliminada
-        );
-        
-        if (hasPayedInvoice) {
-          console.log(`🔍 DEBUG: Saltando servicio ${cs.id} - ya tiene factura pagada`);
+
+        // Calcular monto pendiente
+        const totalAmount = parseFloat(invoice.amount) || 0;
+        const paidAmount = parseFloat(invoice.paidAmount) || 0;
+        const pendingAmount = totalAmount - paidAmount;
+
+        // Solo mostrar facturas con monto pendiente > 0
+        if (pendingAmount <= 0) {
+          console.log(`🔍 DEBUG: Saltando factura ${invoice.number} - completamente pagada`);
           return;
         }
-        
-        const nextPaymentDate = new Date(cs.nextPayment);
-        const daysUntilPayment = Math.ceil((nextPaymentDate - today) / (1000 * 60 * 60 * 24));
 
-        if (daysUntilPayment >= 0 && daysUntilPayment <= 30) {
-          const clientName = cs.client?.name || cs.clientName || `Cliente ID ${cs.clientId}`;
-          const serviceName = cs.service?.name || cs.serviceName || `Servicio ID ${cs.serviceId}`;
-          
+        const dueDate = new Date(invoice.dueDate);
+        const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+
+        // Solo mostrar facturas NO vencidas (días >= 0)
+        if (daysUntilDue >= 0) {
+          const clientName = invoice.client?.name || `Cliente ID ${invoice.clientId}`;
+          const serviceName = invoice.service?.name || `Servicio ID ${invoice.serviceId}`;
+
           upcomingPayments.push({
-            id: `cs-${cs.id}`,
+            id: `inv-${invoice.id}`,
+            invoiceNumber: invoice.number,
             clientName: clientName,
             serviceName: serviceName,
-            date: nextPaymentDate,
-            daysLeft: daysUntilPayment,
-            type: "service",
-            entityId: cs.id,
-            amount: parseFloat(cs.price) || 0,
+            date: dueDate,
+            daysLeft: daysUntilDue,
+            type: "invoice",
+            entityId: invoice.id,
+            amount: pendingAmount,
+            totalAmount: totalAmount,
+            paidAmount: paidAmount
           });
         }
       });
     }
 
-    // ORDENAR POR MONTO (MAYOR A MENOR) PARA PRIORIZAR SERVICIOS MÁS IMPORTANTES
-    upcomingPayments.sort((a, b) => b.amount - a.amount);
-    const paymentsToShow = upcomingPayments.slice(0, 5);
+    // ORDENAR POR DÍAS RESTANTES (MENOS DÍAS PRIMERO) Y LUEGO POR MONTO
+    upcomingPayments.sort((a, b) => {
+      if (a.daysLeft === b.daysLeft) {
+        return b.amount - a.amount; // Si tienen los mismos días, ordenar por monto
+      }
+      return a.daysLeft - b.daysLeft; // Ordenar por días (menos días primero)
+    });
+    
+    // Mostrar hasta 10 facturas
+    const paymentsToShow = upcomingPayments.slice(0, 10);
     
     console.log("🔍 DEBUG: Próximos vencimientos finales (SOLO DATOS DE BD):", paymentsToShow.length);
     console.log("🔍 DEBUG: Detalle de próximos vencimientos:", paymentsToShow);
@@ -2791,7 +2793,7 @@ async function loadUpcomingDeadlines() {
     upcomingContainer.innerHTML = "";
 
     if (paymentsToShow.length === 0) {
-      upcomingContainer.innerHTML = '<p class="text-muted">No hay servicios por cobrar en los próximos 30 días.</p>';
+      upcomingContainer.innerHTML = '<p class="text-muted">No hay facturas pendientes de cobro.</p>';
       return;
     }
 
@@ -2799,25 +2801,33 @@ async function loadUpcomingDeadlines() {
       const item = document.createElement("div");
       item.className = "upcoming-item";
 
-      let daysLabelClass = "days-success";
-      if (payment.daysLeft <= 5) daysLabelClass = "days-danger";
-      else if (payment.daysLeft <= 10) daysLabelClass = "days-warning";
+      // Aplicar colores según días restantes:
+      // <= 5 días: rojo (danger)
+      // 6-10 días: amarillo (warning)
+      // >= 11 días: azul (info)
+      let daysLabelClass = "days-info"; // azul por defecto para >= 11 días
+      if (payment.daysLeft <= 5) {
+        daysLabelClass = "days-danger"; // rojo
+      } else if (payment.daysLeft >= 6 && payment.daysLeft <= 10) {
+        daysLabelClass = "days-warning"; // amarillo
+      }
 
       item.innerHTML = `
         <div>
           <div class="upcoming-client">${payment.clientName}</div>
-          <div class="upcoming-service">${payment.serviceName} • S/. ${payment.amount.toFixed(2)}</div>
+          <div class="upcoming-service">${payment.invoiceNumber} • ${payment.serviceName}</div>
+          <div class="upcoming-amount">S/. ${payment.amount.toFixed(2)} pendiente</div>
         </div>
         <div class="upcoming-date">
           <span>${payment.date.toLocaleDateString()}</span>
-          <div class="days-label ${daysLabelClass}">${payment.daysLeft} días</div>
+          <div class="days-label ${daysLabelClass}">${payment.daysLeft} ${payment.daysLeft === 1 ? 'día' : 'días'}</div>
         </div>`;
 
       item.addEventListener("click", () => {
-        // Solo servicios contratados - ir a la vista de servicios contratados
-        loadView("contracted-services");
-        if (typeof openContractedServiceModal === "function") {
-          setTimeout(() => openContractedServiceModal(payment.entityId), 300);
+        // Ir a la vista de facturas y abrir el modal de la factura
+        loadView("invoices");
+        if (typeof openInvoiceModal === "function") {
+          setTimeout(() => openInvoiceModal(payment.entityId), 300);
         }
       });
       upcomingContainer.appendChild(item);

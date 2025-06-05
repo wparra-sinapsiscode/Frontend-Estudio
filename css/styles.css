@@ -681,6 +681,13 @@ textarea:focus {
   font-size: 12px;
 }
 
+.upcoming-amount {
+  color: var(--primary-color);
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
 .upcoming-date {
   display: flex;
   align-items: center;
@@ -708,6 +715,10 @@ textarea:focus {
 
 .days-success {
   background-color: var(--primary-color);
+}
+
+.days-info {
+  background-color: var(--info-color);
 }
 
 /* Table Styles */
