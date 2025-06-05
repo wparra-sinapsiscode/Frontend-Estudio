@@ -345,7 +345,12 @@ prepareCalendarEventsManually = async function() {
               description: `Servicio: ${service.name}`,
               type: "payment",
               clientId: cs.clientId,
+              clientName: client.name,
               serviceId: cs.serviceId,
+              serviceName: service.name,
+              serviceType: service.type,
+              contractedServiceId: cs.id,
+              amount: parseFloat(cs.price) || 0,
             });
           }
         }
@@ -5631,27 +5636,28 @@ showEventDetails = function(event) {
         ? "Vence hoy"
         : `Vence en ${diffDays} días`;
     details = `
-            <div class="event-detail-item"><div class="label">Tipo</div><div class="value">Pago Programado</div></div>
+            <div class="event-detail-item"><div class="label">Tipo de evento</div><div class="value">Pago programado</div></div>
             <div class="event-detail-item"><div class="label">Cliente</div><div class="value">${
               event.clientName || "N/A"
             }</div></div>
             <div class="event-detail-item"><div class="label">Servicio</div><div class="value">${
               event.serviceName || "N/A"
             }</div></div>
-            <div class="event-detail-item"><div class="label">Monto</div><div class="value">S/. ${event.amount.toFixed(
-              2
-            )}</div></div>
-            <div class="event-detail-item"><div class="label">Fecha Pago</div><div class="value">${new Date(
+            <div class="event-detail-item"><div class="label">Tipo de servicio</div><div class="value">${
+              event.serviceType === "mensual" ? "Mensual" : "Temporal"
+            }</div></div>
+            <div class="event-detail-item"><div class="label">Monto</div><div class="value">S/. ${event.amount ? event.amount.toFixed(2) : "0.00"}</div></div>
+            <div class="event-detail-item"><div class="label">Fecha de pago</div><div class="value">${new Date(
               event.date
             ).toLocaleDateString()}</div></div>
             <div class="event-detail-item"><div class="label">Estado</div><div class="value">${statusText}</div></div>
             <div class="event-detail-item"><div class="label">Acciones</div><div class="value">
-                <button class="btn btn-primary btn-sm" onclick="openContractedServiceModal(${
+                <button class="btn btn-primary" onclick="openContractedServiceModal(${
                   event.contractedServiceId
-                })">Editar</button> 
-                <button class="btn btn-success btn-sm" onclick="createInvoiceFromService(${
+                })">Editar</button>
+                <button class="btn btn-success" onclick="createInvoiceFromService(${
                   event.contractedServiceId
-                })">Generar Proforma</button>
+                })">Generar proforma</button>
             </div></div>`;
   }
   const eventTitleEl = document.getElementById("event-title");
