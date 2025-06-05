@@ -218,10 +218,29 @@ renderInvoicesTable = function() {
     // Debug: Mostrar cálculos
     console.log('Monto Total Factura:', amount, 'Monto Pagado Calculado:', paidAmount, 'Monto Pendiente Calculado:', pendingAmount);
 
+    // Determinar el estado real basado en fecha de vencimiento y montos
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(invoice.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    
+    let displayStatus = invoice.status; // Estado original de la BD
     let statusClass = "";
-    if (invoice.status === "pagada") statusClass = "status-active";
-    else if (invoice.status === "pendiente") statusClass = "status-pending";
-    else if (invoice.status === "vencida") statusClass = "status-alert";
+    
+    // Lógica para determinar el estado correcto
+    if (pendingAmount <= 0) {
+      // Completamente pagada
+      displayStatus = "pagada";
+      statusClass = "status-active";
+    } else if (dueDate < today) {
+      // Tiene saldo pendiente Y ya venció
+      displayStatus = "vencido";
+      statusClass = "status-overdue";
+    } else {
+      // Tiene saldo pendiente pero aún no vence
+      displayStatus = "pendiente";
+      statusClass = "status-pending";
+    }
     const documentInfo = invoice.document
       ? `<span class="document-item"><i class="fas fa-file-alt"></i> ${invoice.document.name}</span>`
       : '<span class="text-muted">Sin documento</span>';
@@ -237,7 +256,7 @@ renderInvoicesTable = function() {
     )}</td><td>S/. ${paidAmount.toFixed(2)}</td><td>S/. ${pendingAmount.toFixed(
       2
     )}</td><td>${documentInfo}</td><td><span class="status-badge ${statusClass}">${capitalizeFirstLetter(
-      invoice.status
+      displayStatus
     )}</span></td><td><div class="table-actions"><div class="action-btn view-btn" data-action="view" data-invoice-id="${
       invoice.id
     }"><i class="fas fa-eye"></i></div><div class="action-btn edit-btn" data-action="edit" data-invoice-id="${
@@ -246,7 +265,7 @@ renderInvoicesTable = function() {
       invoice.id
     }"><i class="fas fa-trash"></i></div>${
       // 🎯 MEJORA: Inhabilitar botón de pago si está completamente pagada
-      invoice.status === 'pagada' 
+      displayStatus === 'pagada' 
         ? `<div class="action-btn payment-btn disabled" title="Pago completado" style="opacity: 0.5; cursor: not-allowed;"><i class="fas fa-check-circle"></i></div>`
         : `<div class="action-btn payment-btn" data-action="payment" data-invoice-id="${invoice.id}" title="Agregar pago"><i class="fas fa-money-bill-wave"></i></div>`
     }${

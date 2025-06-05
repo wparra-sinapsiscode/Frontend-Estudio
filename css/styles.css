@@ -804,6 +804,12 @@ textarea:focus {
   color: var(--danger-color);
 }
 
+.status-overdue {
+  background-color: rgba(244, 67, 54, 0.1);
+  color: var(--danger-color);
+  font-weight: 600;
+}
+
 .table-actions {
   display: flex;
   gap: 8px;
