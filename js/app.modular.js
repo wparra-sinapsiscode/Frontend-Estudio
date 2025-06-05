@@ -1629,6 +1629,18 @@ function handleApiError(error, context = "") {
 async function initApp() {
   console.log("Inicializando aplicación modular...");
 
+// Verificar logs de debug del submit anterior
+const debugSubmit = localStorage.getItem('debug_submit');
+const debugPrevent = localStorage.getItem('debug_prevent');
+if (debugSubmit) {
+  console.log('🔍 DEBUG ANTERIOR - Submit:', debugSubmit);
+  localStorage.removeItem('debug_submit');
+}
+if (debugPrevent) {
+  console.log('🔍 DEBUG ANTERIOR - Prevent:', debugPrevent);
+  localStorage.removeItem('debug_prevent');
+}
+
   try {
     // Verificar estado del backend
     await checkBackendHealth();
@@ -2059,7 +2071,7 @@ function setupModalEventListeners() {
     .addEventListener("submit", handleClientSubmit);
     
   // Configurar handlers del modal de seguimiento
-  setupTrackingFormHandlers();
+  // setupTrackingFormHandlers(); // Se llamará después de cargar el HTML del modal
 
   // Servicio Contratado
   document
@@ -2802,7 +2814,12 @@ async function loadUpcomingDeadlines() {
         }
 
         const dueDate = new Date(invoice.dueDate);
-        const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+        dueDate.setHours(0, 0, 0, 0); // Normalizar a medianoche
+        
+        const todayNormalized = new Date(today);
+        todayNormalized.setHours(0, 0, 0, 0); // Normalizar a medianoche
+        
+        const daysUntilDue = Math.floor((dueDate - todayNormalized) / (1000 * 60 * 60 * 24));
 
         // Mostrar TODAS las facturas pendientes (incluidas las vencidas)
         const clientName = invoice.client?.name || `Cliente ID ${invoice.clientId}`;
@@ -2928,7 +2945,12 @@ async function loadVencidosData() {
         if (!invoice.dueDate || !invoice.id || invoice.deletedAt) return;
 
         const dueDate = new Date(invoice.dueDate);
-        const daysPastDue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+        dueDate.setHours(0, 0, 0, 0); // Normalizar a medianoche
+        
+        const todayNormalized = new Date(today);
+        todayNormalized.setHours(0, 0, 0, 0); // Normalizar a medianoche
+        
+        const daysPastDue = Math.floor((todayNormalized - dueDate) / (1000 * 60 * 60 * 24));
 
         // Solo facturas vencidas (fecha pasada)
         if (daysPastDue > 0) {
@@ -2965,7 +2987,12 @@ async function loadVencidosData() {
         if (!cs.nextPayment || !cs.id || cs.status !== 'activo') return;
 
         const nextPaymentDate = new Date(cs.nextPayment);
-        const daysPastDue = Math.floor((today - nextPaymentDate) / (1000 * 60 * 60 * 24));
+        nextPaymentDate.setHours(0, 0, 0, 0); // Normalizar a medianoche
+        
+        const todayNormalized = new Date(today);
+        todayNormalized.setHours(0, 0, 0, 0); // Normalizar a medianoche
+        
+        const daysPastDue = Math.floor((todayNormalized - nextPaymentDate) / (1000 * 60 * 60 * 24));
 
         // Solo servicios vencidos
         if (daysPastDue > 0) {
@@ -3094,6 +3121,8 @@ async function openTrackingModal(invoiceId, clientName, invoiceNumber, amount) {
       console.log('Modal cargado exitosamente');
       // Re-configurar los event handlers después de cargar
       setupTrackingModalEvents();
+      // Configurar también los handlers del formulario después de cargar el HTML
+      setupTrackingFormHandlers();
       // Llamar de nuevo después de cargar
       setTimeout(() => openTrackingModal(invoiceId, clientName, invoiceNumber, amount), 100);
       return;
@@ -3171,6 +3200,11 @@ function closeTrackingModal() {
   closeModal('tracking-modal');
   // Reset retry counter
   trackingModalRetries = 0;
+  // Reset form dataset to allow re-attachment of event listeners
+  const form = document.getElementById('tracking-form');
+  if (form && form.dataset.trackingListener) {
+    delete form.dataset.trackingListener;
+  }
 }
 
 // Función para configurar eventos del modal de seguimiento
@@ -3269,9 +3303,25 @@ function setupTrackingFormHandlers() {
   
   // Manejar envío del formulario
   const form = document.getElementById('tracking-form');
+  console.log('🔍 SETUP - Buscando formulario tracking-form:', !!form);
   if (form) {
+    console.log('🔍 SETUP - Formulario encontrado');
+    console.log('🔍 SETUP - Dataset tracking-listener:', form.dataset.trackingListener);
+    
+    if (form.dataset.trackingListener === 'attached') {
+      console.log('🔍 SETUP - Event listener ya existe, saltando...');
+      return;
+    }
+    
+    console.log('🔍 SETUP - Agregando event listener de submit');
+    form.dataset.trackingListener = 'attached';
     form.addEventListener('submit', async (e) => {
+      console.log('🔍 SUBMIT - Evento submit interceptado!');
+      localStorage.setItem('debug_submit', 'SUBMIT intercepted at ' + new Date().toISOString());
+      console.log('🔍 SUBMIT - Previniendo comportamiento por defecto...');
       e.preventDefault();
+      localStorage.setItem('debug_prevent', 'preventDefault executed at ' + new Date().toISOString());
+      console.log('🔍 SUBMIT - preventDefault() ejecutado');
       
       try {
         // Obtener los tipos de acción seleccionados (checkboxes)
@@ -3320,15 +3370,17 @@ function setupTrackingFormHandlers() {
           return;
         }
         
-        console.log('Guardando seguimiento:', trackingData);
+        console.log('🔍 FRONTEND - Datos que se van a enviar:', trackingData);
+        console.log('🔍 FRONTEND - URL del endpoint:', `${API_BASE_URL}/collection-tracking`);
+        console.log('🔍 FRONTEND - Iniciando petición POST...');
         
         // Enviar a la API
-        const response = await fetchWithAuth(`${API_BASE_URL}/collection-tracking`, {
-          method: 'POST',
-          body: JSON.stringify(trackingData)
-        });
+        const response = await fetchWithAuth(`${API_BASE_URL}/collection-tracking`, 'POST', trackingData);
         
-        console.log('Respuesta del servidor:', response);
+        console.log('🔍 FRONTEND - Respuesta completa del servidor:', response);
+        console.log('🔍 FRONTEND - Response.success:', response.success);
+        console.log('🔍 FRONTEND - Response.data:', response.data);
+        console.log('🔍 FRONTEND - Response.message:', response.message);
         
         if (response.success) {
           showToast('success', 'Seguimiento guardado', 'El seguimiento se ha registrado correctamente');
@@ -5567,8 +5619,12 @@ async function handleInvoiceData(invoice, eventTitleEl, eventDetailsEl) {
 
   // Calcular estado de vencimiento
   const dueDate = new Date(invoice.dueDate);
+  dueDate.setHours(0, 0, 0, 0); // Normalizar a medianoche
+  
   const currentDate = new Date();
-  const daysUntilDue = Math.ceil(
+  currentDate.setHours(0, 0, 0, 0); // Normalizar a medianoche
+  
+  const daysUntilDue = Math.floor(
     (dueDate - currentDate) / (1000 * 60 * 60 * 24)
   );
   // Convertir a números para cálculos
@@ -6384,8 +6440,12 @@ showEventDetails = function(event) {
   console.log('🔍 DEBUG showEventDetails - Evento recibido:', event);
   let details = "";
   if (event.type === "invoice") {
-    const diffDays = Math.ceil(
-      (new Date(event.date) - new Date()) / (1000 * 60 * 60 * 24)
+    const eventDate = new Date(event.date);
+    eventDate.setHours(0, 0, 0, 0);
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor(
+      (eventDate - todayDate) / (1000 * 60 * 60 * 24)
     );
     let statusText =
       event.status === "pagada"
@@ -6448,8 +6508,12 @@ showEventDetails = function(event) {
             ).toLocaleDateString()}</div></div>`;
   } else {
     // payment
-    const diffDays = Math.ceil(
-      (new Date(event.date) - new Date()) / (1000 * 60 * 60 * 24)
+    const eventDate = new Date(event.date);
+    eventDate.setHours(0, 0, 0, 0);
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor(
+      (eventDate - todayDate) / (1000 * 60 * 60 * 24)
     );
     let statusText =
       diffDays < 0
