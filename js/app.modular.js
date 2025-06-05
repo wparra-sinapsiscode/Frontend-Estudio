@@ -2972,16 +2972,7 @@ async function loadVencidosData() {
 
     itemsToShow.forEach((item) => {
       const vencidoDiv = document.createElement("div");
-      vencidoDiv.className = "vencido-item";
-      
-      // Determinar clase de urgencia
-      if (item.daysOverdue > 15) {
-        vencidoDiv.classList.add("critico");
-      } else if (item.daysOverdue > 7) {
-        vencidoDiv.classList.add("urgente");
-      } else {
-        vencidoDiv.classList.add("importante");
-      }
+      vencidoDiv.className = "vencido-item"; // Solo una clase, todos con borde rojo
 
       vencidoDiv.innerHTML = `
         <div class="vencido-info">
