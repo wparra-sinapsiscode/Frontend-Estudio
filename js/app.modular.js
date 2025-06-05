@@ -274,7 +274,9 @@ renderInvoicesTable = function() {
         : ""
     }<div class="action-btn whatsapp-btn" data-action="whatsapp" data-invoice-id="${
       invoice.id
-    }"><i class="fab fa-whatsapp"></i></div></div></td>`;
+    }"><i class="fab fa-whatsapp"></i></div><div class="action-btn tracking-btn" data-action="tracking" data-invoice-id="${
+      invoice.id
+    }" title="Seguimiento de cobro" style="display: none;"><i class="fas fa-history"></i></div></div></td>`;
     tableBody.appendChild(row);
   });
 };
@@ -1808,6 +1810,10 @@ async function loadDashboardComponents() {
         url: "components/modals/event-modal.html",
         targetId: "event-modal-container",
       },
+      {
+        url: "components/modals/tracking-modal.html",
+        targetId: "tracking-modal-container",
+      },
     ]);
 
     // Cargar toast de notificaciones
@@ -1993,6 +1999,28 @@ function setupViewEventListeners(sectionName) {
       } else {
         console.log("⚠️ DEBUG: invoice-client select no encontrado (se agregará cuando se abra el modal)");
       }
+      
+      // Event listener para los botones de acción en la tabla
+      const invoicesTable = document.getElementById('invoices-table');
+      if (invoicesTable) {
+        invoicesTable.addEventListener('click', async (e) => {
+          const btn = e.target.closest('.action-btn');
+          if (!btn) return;
+          
+          const action = btn.dataset.action;
+          const invoiceId = btn.dataset.invoiceId;
+          
+          if (action === 'tracking') {
+            // Obtener datos de la factura desde la fila
+            const row = btn.closest('tr');
+            const clientName = row.cells[1].textContent;
+            const invoiceNumber = row.cells[0].textContent;
+            const pendingAmount = parseFloat(row.cells[7].textContent.replace('S/. ', ''));
+            
+            openTrackingModal(invoiceId, clientName, invoiceNumber, pendingAmount);
+          }
+        });
+      }
       break;
 
     case "calendar":
@@ -2029,6 +2057,9 @@ function setupModalEventListeners() {
   document
     .getElementById("client-form")
     .addEventListener("submit", handleClientSubmit);
+    
+  // Configurar handlers del modal de seguimiento
+  setupTrackingFormHandlers();
 
   // Servicio Contratado
   document
@@ -3023,6 +3054,430 @@ async function loadVencidosData() {
     console.error("Error cargando vencidos:", error);
     vencidosContainer.innerHTML = '<p class="text-error">Error al cargar vencidos.</p>';
     vencidosCount.textContent = "0";
+  }
+}
+
+// Función para abrir el modal de seguimiento de cobro
+let trackingModalRetries = 0;
+const MAX_TRACKING_RETRIES = 5;
+
+async function openTrackingModal(invoiceId, clientName, invoiceNumber, amount) {
+  console.log('Abriendo modal de seguimiento para factura:', invoiceId);
+  
+  // Buscar el modal
+  const modal = document.getElementById('tracking-modal');
+  const container = document.getElementById('tracking-modal-container');
+  
+  if (!modal || !container) {
+    console.error('Modal de seguimiento no encontrado.');
+    console.log('Modal:', modal);
+    console.log('Container:', container);
+    console.log('Container HTML:', container ? container.innerHTML.substring(0, 100) : 'No container');
+    
+    if (trackingModalRetries < MAX_TRACKING_RETRIES) {
+      trackingModalRetries++;
+      console.log(`Reintento ${trackingModalRetries} de ${MAX_TRACKING_RETRIES}`);
+      setTimeout(() => openTrackingModal(invoiceId, clientName, invoiceNumber, amount), 500);
+    } else {
+      console.error('No se pudo cargar el modal después de varios intentos');
+      showToast('error', 'Error', 'No se pudo abrir el modal de seguimiento');
+      trackingModalRetries = 0;
+    }
+    return;
+  }
+  
+  // Verificar si el contenido está cargado
+  if (container.innerHTML.trim() === '<!-- Se carga dinámicamente desde components/modals/tracking-modal.html -->') {
+    console.log('El modal no está cargado. Cargando manualmente...');
+    try {
+      await loadComponent('components/modals/tracking-modal.html', 'tracking-modal-container');
+      console.log('Modal cargado exitosamente');
+      // Re-configurar los event handlers después de cargar
+      setupTrackingModalEvents();
+      // Llamar de nuevo después de cargar
+      setTimeout(() => openTrackingModal(invoiceId, clientName, invoiceNumber, amount), 100);
+      return;
+    } catch (error) {
+      console.error('Error al cargar el modal:', error);
+      showToast('error', 'Error', 'No se pudo cargar el modal de seguimiento');
+      return;
+    }
+  }
+  
+  // Verificar que los elementos existan antes de actualizarlos
+  const clientNameEl = document.getElementById('tracking-client-name');
+  const invoiceNumberEl = document.getElementById('tracking-invoice-number');
+  const amountEl = document.getElementById('tracking-amount');
+  
+  console.log('Elementos encontrados:', {
+    clientName: clientNameEl,
+    invoiceNumber: invoiceNumberEl,
+    amount: amountEl
+  });
+  
+  if (!clientNameEl || !invoiceNumberEl || !amountEl) {
+    console.error('Elementos del modal no encontrados en el DOM');
+    console.log('HTML del container:', container.innerHTML.substring(0, 200));
+    
+    if (trackingModalRetries < MAX_TRACKING_RETRIES) {
+      trackingModalRetries++;
+      console.log(`Reintento ${trackingModalRetries} de ${MAX_TRACKING_RETRIES} para elementos`);
+      setTimeout(() => openTrackingModal(invoiceId, clientName, invoiceNumber, amount), 500);
+    } else {
+      console.error('Elementos no encontrados después de varios intentos');
+      showToast('error', 'Error', 'Error al cargar el modal de seguimiento');
+      trackingModalRetries = 0;
+    }
+    return;
+  }
+  
+  // Reset retry counter on success
+  trackingModalRetries = 0;
+  
+  // Actualizar títulos
+  clientNameEl.textContent = clientName || 'Cliente';
+  invoiceNumberEl.textContent = invoiceNumber || 'Factura';
+  amountEl.textContent = `S/. ${amount ? amount.toFixed(2) : '0.00'}`;
+  
+  // Guardar el ID de la factura para usarlo al guardar
+  modal.dataset.invoiceId = invoiceId;
+  modal.dataset.entityType = 'invoice';
+  
+  // Resetear el formulario
+  const form = document.getElementById('tracking-form');
+  if (form) form.reset();
+  
+  // Ocultar secciones condicionales
+  const responseGroup = document.getElementById('client-response-group');
+  const promiseGroup = document.getElementById('promise-group');
+  const promiseDetails = document.getElementById('promise-details');
+  
+  if (responseGroup) responseGroup.style.display = 'none';
+  if (promiseGroup) promiseGroup.style.display = 'none';
+  if (promiseDetails) promiseDetails.style.display = 'none';
+  
+  // Cargar historial (por ahora con datos de ejemplo)
+  loadTrackingHistory(invoiceId);
+  
+  // Configurar eventos del modal
+  setupTrackingModalEvents();
+  
+  // Mostrar el modal
+  showModal('tracking-modal');
+}
+
+// Función para cerrar el modal de seguimiento
+function closeTrackingModal() {
+  closeModal('tracking-modal');
+  // Reset retry counter
+  trackingModalRetries = 0;
+}
+
+// Función para configurar eventos del modal de seguimiento
+function setupTrackingModalEvents() {
+  // Manejar el cierre del modal con el botón X
+  const closeBtn = document.getElementById('close-tracking-modal');
+  if (closeBtn) {
+    // Remover listeners anteriores para evitar duplicados
+    const newCloseBtn = closeBtn.cloneNode(true);
+    closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+    newCloseBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Cerrando modal con X');
+      closeTrackingModal();
+    });
+  }
+  
+  // Manejar cancelar formulario
+  const cancelBtn = document.getElementById('cancel-tracking-form');
+  if (cancelBtn) {
+    // Remover listeners anteriores para evitar duplicados
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+    newCancelBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Cerrando modal con Cancelar');
+      closeTrackingModal();
+    });
+  }
+  
+  // Cerrar modal al hacer clic fuera de él
+  const modal = document.getElementById('tracking-modal');
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        console.log('Cerrando modal con click exterior');
+        closeTrackingModal();
+      }
+    });
+  }
+}
+
+// Función para manejar el checkbox de contacto
+function setupTrackingFormHandlers() {
+  const contactCheckbox = document.getElementById('contactMade');
+  const promiseCheckbox = document.getElementById('hasPromise');
+  
+  if (contactCheckbox) {
+    contactCheckbox.addEventListener('change', (e) => {
+      const responseGroup = document.getElementById('client-response-group');
+      const promiseGroup = document.getElementById('promise-group');
+      
+      if (e.target.checked) {
+        responseGroup.style.display = 'block';
+        promiseGroup.style.display = 'block';
+      } else {
+        responseGroup.style.display = 'none';
+        promiseGroup.style.display = 'none';
+        document.getElementById('clientResponse').value = '';
+        if (promiseCheckbox) promiseCheckbox.checked = false;
+        document.getElementById('promise-details').style.display = 'none';
+      }
+    });
+  }
+  
+  if (promiseCheckbox) {
+    promiseCheckbox.addEventListener('change', (e) => {
+      const promiseDetails = document.getElementById('promise-details');
+      if (e.target.checked) {
+        promiseDetails.style.display = 'block';
+        document.getElementById('trackingStatus').value = 'promesa_pago';
+      } else {
+        promiseDetails.style.display = 'none';
+        document.getElementById('promiseDate').value = '';
+        document.getElementById('promiseAmount').value = '';
+      }
+    });
+  }
+  
+  // Manejar el cierre del modal
+  const closeBtn = document.getElementById('close-tracking-modal');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeTrackingModal);
+  }
+  
+  // Cerrar con backdrop
+  const backdrop = document.querySelector('#tracking-modal .modal-backdrop');
+  if (backdrop) {
+    backdrop.addEventListener('click', closeTrackingModal);
+  }
+  
+  // Los eventos de cierre ahora se manejan en setupTrackingModalEvents
+  setupTrackingModalEvents();
+  
+  // Manejar envío del formulario
+  const form = document.getElementById('tracking-form');
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      try {
+        // Obtener los tipos de acción seleccionados (checkboxes)
+        const selectedActions = [];
+        const actionCheckboxes = form.querySelectorAll('input[name="actionType"]:checked');
+        actionCheckboxes.forEach(cb => selectedActions.push(cb.value));
+        
+        if (selectedActions.length === 0) {
+          showToast('warning', 'Atención', 'Debes seleccionar al menos una acción realizada');
+          return;
+        }
+        
+        // Obtener el ID de la factura del modal
+        const modal = document.getElementById('tracking-modal');
+        const invoiceId = modal.dataset.invoiceId;
+        const entityType = modal.dataset.entityType || 'invoice';
+        
+        // Obtener clientId de la factura
+        let clientId;
+        try {
+          const invoiceResponse = await fetchWithAuth(`${API_BASE_URL}/invoices/${invoiceId}`);
+          clientId = invoiceResponse.data?.clientId;
+        } catch (error) {
+          console.error('Error obteniendo clientId:', error);
+        }
+        
+        // Recopilar datos del formulario
+        const trackingData = {
+          entityType: entityType,
+          entityId: parseInt(invoiceId),
+          clientId: clientId,
+          actionType: selectedActions.join(','), // Guardar múltiples acciones separadas por coma
+          actionDescription: document.getElementById('actionDescription').value.trim(),
+          contactMade: document.getElementById('contactMade').checked,
+          clientResponse: document.getElementById('clientResponse').value.trim(),
+          nextActionDate: document.getElementById('nextActionDate').value || null,
+          nextActionNotes: document.getElementById('nextActionNotes').value.trim(),
+          status: document.getElementById('trackingStatus').value,
+          promiseDate: document.getElementById('promiseDate').value || null,
+          promiseAmount: parseFloat(document.getElementById('promiseAmount').value) || null
+        };
+        
+        // Validar descripción
+        if (!trackingData.actionDescription) {
+          showToast('warning', 'Atención', 'Debes describir la acción realizada');
+          return;
+        }
+        
+        console.log('Guardando seguimiento:', trackingData);
+        
+        // Enviar a la API
+        const response = await fetchWithAuth(`${API_BASE_URL}/collection-tracking`, {
+          method: 'POST',
+          body: JSON.stringify(trackingData)
+        });
+        
+        console.log('Respuesta del servidor:', response);
+        
+        if (response.success) {
+          showToast('success', 'Seguimiento guardado', 'El seguimiento se ha registrado correctamente');
+          
+          // Recargar el historial
+          await loadTrackingHistory(invoiceId);
+          
+          // Reset el formulario
+          form.reset();
+          document.getElementById('client-response-group').style.display = 'none';
+          document.getElementById('promise-group').style.display = 'none';
+          document.getElementById('promise-details').style.display = 'none';
+          
+          // Cerrar el modal después de un momento
+          setTimeout(() => {
+            closeTrackingModal();
+          }, 1500);
+        } else {
+          throw new Error(response.message || 'Error al guardar el seguimiento');
+        }
+      } catch (error) {
+        console.error('Error al guardar seguimiento:', error);
+        console.error('Stack trace:', error.stack);
+        
+        let errorMessage = 'No se pudo guardar el seguimiento';
+        if (error.message.includes('404')) {
+          errorMessage = 'Endpoint no encontrado. Verifica que el servidor esté corriendo.';
+        } else if (error.message.includes('500')) {
+          errorMessage = 'Error interno del servidor. Verifica los logs del backend.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        showToast('error', 'Error', errorMessage);
+      }
+    });
+  }
+}
+
+// Función para cargar el historial de seguimiento
+async function loadTrackingHistory(invoiceId) {
+  const historyList = document.getElementById('tracking-history-list');
+  if (!historyList) return;
+  
+  try {
+    console.log('Cargando historial para factura:', invoiceId);
+    
+    // Cargar historial desde la API
+    const response = await fetchWithAuth(`${API_BASE_URL}/collection-tracking/history/invoice/${invoiceId}`);
+    const trackings = response.data || [];
+    
+    // Limpiar el contenedor
+    historyList.innerHTML = '';
+    
+    if (trackings.length === 0) {
+      // Mostrar mensaje de no hay historial
+      historyList.innerHTML = `
+        <div class="no-tracking-history">
+          <i class="fas fa-clipboard-list"></i>
+          <p>No hay seguimientos registrados para esta factura.</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Renderizar cada item del historial
+    trackings.forEach(tracking => {
+      const actionTypes = tracking.actionType.split(',');
+      const mainAction = actionTypes[0]; // Usar la primera acción como principal para el ícono
+      
+      // Determinar el badge basado en el estado
+      let badgeClass = '';
+      let badgeText = '';
+      if (tracking.contactMade) {
+        badgeClass = 'con-contacto';
+        badgeText = 'Con contacto';
+      } else {
+        badgeClass = 'sin-contacto';
+        badgeText = 'Sin contacto';
+      }
+      
+      // Mapeo de iconos por tipo de acción
+      const actionIcons = {
+        'llamada': 'fa-phone',
+        'email': 'fa-envelope',
+        'visita': 'fa-user-check',
+        'whatsapp': 'fab fa-whatsapp'
+      };
+      
+      // Mapeo de nombres de acciones
+      const actionNames = {
+        'llamada': 'Llamada telefónica',
+        'email': 'Correo electrónico',
+        'visita': 'Visita presencial',
+        'whatsapp': 'WhatsApp'
+      };
+      
+      // Crear lista de acciones realizadas
+      const actionsList = actionTypes.map(type => actionNames[type] || type).join(', ');
+      
+      const itemHTML = `
+        <div class="tracking-history-item">
+          <div class="tracking-history-header">
+            <div class="tracking-icon ${mainAction}">
+              <i class="fas ${actionIcons[mainAction] || 'fa-clipboard'}"></i>
+            </div>
+            <div class="tracking-info">
+              <div class="tracking-date">${new Date(tracking.actionDate).toLocaleString('es-PE')}</div>
+              <div class="tracking-user">${tracking.User ? tracking.User.name : currentUser.name}</div>
+            </div>
+            <div class="tracking-badge ${badgeClass}">${badgeText}</div>
+          </div>
+          <div class="tracking-description">
+            <strong>${actionsList}</strong>
+            <p>${tracking.actionDescription}</p>
+            ${tracking.clientResponse ? `
+              <div style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                <strong>Respuesta del cliente:</strong><br>
+                ${tracking.clientResponse}
+              </div>
+            ` : ''}
+            ${tracking.hasPromise ? `
+              <div style="margin-top: 10px; color: #28a745;">
+                <i class="fas fa-handshake"></i> Promesa de pago: 
+                S/. ${tracking.promiseAmount || 0} para el ${new Date(tracking.promiseDate).toLocaleDateString('es-PE')}
+              </div>
+            ` : ''}
+            ${tracking.nextActionDate ? `
+              <div style="margin-top: 10px; color: #6c757d;">
+                <i class="fas fa-calendar-check"></i> Próximo seguimiento: 
+                ${new Date(tracking.nextActionDate).toLocaleDateString('es-PE')}
+                ${tracking.nextActionNotes ? ` - ${tracking.nextActionNotes}` : ''}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+      
+      historyList.innerHTML += itemHTML;
+    });
+    
+  } catch (error) {
+    console.error('Error al cargar historial de seguimiento:', error);
+    historyList.innerHTML = `
+      <div class="no-tracking-history">
+        <i class="fas fa-exclamation-triangle"></i>
+        <p>Error al cargar el historial de seguimiento.</p>
+      </div>
+    `;
   }
 }
 
@@ -5120,9 +5575,24 @@ async function handleInvoiceData(invoice, eventTitleEl, eventDetailsEl) {
   const totalAmount = typeof invoice.amount === 'number' ? invoice.amount : parseFloat(invoice.amount) || 0;
   const paidAmount = typeof invoice.paidAmount === 'number' ? invoice.paidAmount : parseFloat(invoice.paidAmount) || 0;
   const pendingAmount = totalAmount - paidAmount;
+  
+  // Determinar el estado real basado en fecha de vencimiento y montos
+  let displayStatus = invoice.status; // Estado original de la BD
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  dueDate.setHours(0, 0, 0, 0);
+  
+  if (pendingAmount <= 0) {
+    displayStatus = "pagada";
+  } else if (dueDate < today) {
+    displayStatus = "vencido";
+  } else {
+    displayStatus = "pendiente";
+  }
+  
   let dueStatus = "";
-  if (invoice.status === "pagada") dueStatus = "Pagada";
-  else if (daysUntilDue < 0) dueStatus = "Vencida";
+  if (displayStatus === "pagada") dueStatus = "Pagada";
+  else if (displayStatus === "vencido") dueStatus = "Vencida";
   else if (daysUntilDue <= 5)
     dueStatus = `Vence en ${daysUntilDue} días (urgente)`;
   else if (daysUntilDue <= 10)
@@ -5244,7 +5714,19 @@ async function handleInvoiceData(invoice, eventTitleEl, eventDetailsEl) {
               })">
                 <i class="fas fa-money-bill-wave"></i> Registrar Pago
               </button>
-          </div>`;
+          </div>
+          ${
+            // Solo mostrar el botón de seguimiento si la factura está vencida
+            displayStatus === "vencido" 
+              ? `<div style="margin-top:10px;">
+                  <button class="btn btn-info" style="width:100%;" onclick="openTrackingModal(${
+                    invoice.id
+                  }, '${client.name.replace(/'/g, "\\'")}', '${invoice.number}', ${pendingAmount})">
+                    <i class="fas fa-history"></i> Seguimiento de Cobro
+                  </button>
+                </div>`
+              : ""
+          }`;
 
   // Actualizar modal con los datos
   console.log('🔍 DEBUG handleInvoiceData - Actualizando modal con datos...');

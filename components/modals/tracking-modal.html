@@ -1,0 +1,178 @@
+<div class="modal-header">
+    <div class="modal-title-section">
+        <h2 id="tracking-modal-title">Seguimiento de Cobro</h2>
+        <div class="tracking-subtitle">
+            <span id="tracking-client-name">Cliente</span> - 
+            <span id="tracking-invoice-number">Factura</span> - 
+            <span id="tracking-amount">S/. 0.00</span>
+        </div>
+    </div>
+    <button class="close" id="close-tracking-modal">
+        <i class="fas fa-times"></i>
+    </button>
+</div>
+
+<div class="modal-body" style="max-height: 600px; overflow-y: auto;">
+    <!-- Formulario de nueva acción -->
+    <div class="tracking-form-section">
+        <h3>Registrar Nueva Acción</h3>
+        
+        <form id="tracking-form">
+            <!-- Tipo de acción -->
+            <div class="form-group">
+                <label>¿Qué acciones realizaste? (Puedes seleccionar varias)</label>
+                <div class="action-type-grid">
+                    <label class="action-type-option">
+                        <input type="checkbox" name="actionType" value="llamada">
+                        <div class="action-type-box">
+                            <i class="fas fa-phone"></i>
+                            <span>Llamada telefónica</span>
+                        </div>
+                    </label>
+                    <label class="action-type-option">
+                        <input type="checkbox" name="actionType" value="email">
+                        <div class="action-type-box">
+                            <i class="fas fa-envelope"></i>
+                            <span>Correo electrónico</span>
+                        </div>
+                    </label>
+                    <label class="action-type-option">
+                        <input type="checkbox" name="actionType" value="visita">
+                        <div class="action-type-box">
+                            <i class="fas fa-user-check"></i>
+                            <span>Visita presencial</span>
+                        </div>
+                    </label>
+                    <label class="action-type-option">
+                        <input type="checkbox" name="actionType" value="whatsapp">
+                        <div class="action-type-box">
+                            <i class="fab fa-whatsapp"></i>
+                            <span>WhatsApp</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Descripción de la acción -->
+            <div class="form-group">
+                <label for="actionDescription">Describe lo que hiciste:</label>
+                <textarea id="actionDescription" rows="3" placeholder="Ej: Llamé al contador de la empresa a las 10:30am al número registrado..."></textarea>
+            </div>
+
+            <!-- Contacto realizado -->
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="contactMade" name="contactMade">
+                    <span>¿Lograste contactar al cliente?</span>
+                </label>
+            </div>
+
+            <!-- Respuesta del cliente (se muestra solo si hubo contacto) -->
+            <div class="form-group" id="client-response-group" style="display: none;">
+                <label for="clientResponse">¿Cuál fue la respuesta del cliente?</label>
+                <textarea id="clientResponse" rows="3" placeholder="Ej: El contador indicó que están esperando un pago de su cliente principal. Prometió pagar el día 15/06."></textarea>
+            </div>
+
+            <!-- Promesa de pago (opcional) -->
+            <div class="form-group" id="promise-group" style="display: none;">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="hasPromise" name="hasPromise">
+                    <span>¿El cliente hizo una promesa de pago?</span>
+                </label>
+                
+                <div id="promise-details" style="display: none; margin-top: 15px;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="promiseDate">Fecha prometida:</label>
+                            <input type="date" id="promiseDate">
+                        </div>
+                        <div class="form-group">
+                            <label for="promiseAmount">Monto prometido:</label>
+                            <input type="number" id="promiseAmount" step="0.01" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Próximo seguimiento -->
+            <div class="form-group">
+                <label for="nextActionDate">Próximo seguimiento:</label>
+                <div class="form-row">
+                    <input type="date" id="nextActionDate">
+                    <input type="text" id="nextActionNotes" placeholder="Notas para el próximo contacto...">
+                </div>
+            </div>
+
+            <!-- Estado del seguimiento -->
+            <div class="form-group">
+                <label for="trackingStatus">Estado del seguimiento:</label>
+                <select id="trackingStatus">
+                    <option value="en_progreso">En progreso</option>
+                    <option value="promesa_pago">Promesa de pago</option>
+                    <option value="sin_respuesta">Sin respuesta</option>
+                    <option value="rechazado">Rechazado</option>
+                </select>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Guardar Seguimiento
+                </button>
+                <button type="button" class="btn btn-secondary" id="cancel-tracking-form">
+                    Cancelar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Separador -->
+    <div class="tracking-separator"></div>
+
+    <!-- Historial de seguimiento -->
+    <div class="tracking-history-section">
+        <h3>Historial de Seguimiento</h3>
+        
+        <div id="tracking-history-list" class="tracking-history-list">
+            <!-- Ejemplo de item de historial (se cargará dinámicamente) -->
+            <div class="tracking-history-item">
+                <div class="tracking-history-header">
+                    <div class="tracking-icon llamada">
+                        <i class="fas fa-phone"></i>
+                    </div>
+                    <div class="tracking-info">
+                        <div class="tracking-date">03/06/2025 - 10:30 AM</div>
+                        <div class="tracking-user">Juan Pérez</div>
+                    </div>
+                    <div class="tracking-badge sin-contacto">Sin contacto</div>
+                </div>
+                <div class="tracking-description">
+                    <strong>Llamada telefónica</strong>
+                    <p>Contacté a recepción, dijeron que el contador no estaba. Dejé mensaje para que devuelva la llamada.</p>
+                </div>
+            </div>
+
+            <div class="tracking-history-item">
+                <div class="tracking-history-header">
+                    <div class="tracking-icon email">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <div class="tracking-info">
+                        <div class="tracking-date">01/06/2025 - 2:15 PM</div>
+                        <div class="tracking-user">Juan Pérez</div>
+                    </div>
+                    <div class="tracking-badge sin-respuesta">Sin respuesta</div>
+                </div>
+                <div class="tracking-description">
+                    <strong>Correo electrónico</strong>
+                    <p>Envié recordatorio de pago con detalle de factura adjunto.</p>
+                </div>
+            </div>
+
+            <!-- Mensaje cuando no hay historial -->
+            <div class="no-tracking-history" style="display: none;">
+                <i class="fas fa-clipboard-list"></i>
+                <p>No hay seguimientos registrados para esta factura.</p>
+            </div>
+        </div>
+    </div>
+</div>

@@ -124,6 +124,10 @@ async function initializeUI() {
       url: "components/modals/event-modal.html",
       targetId: "event-modal-container",
     },
+    {
+      url: "components/modals/tracking-modal.html",
+      targetId: "tracking-modal-container",
+    },
   ]);
 
   // Inicializar eventos después de cargar componentes
