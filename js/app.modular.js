@@ -2754,25 +2754,24 @@ async function loadUpcomingDeadlines() {
         const dueDate = new Date(invoice.dueDate);
         const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
 
-        // Solo mostrar facturas NO vencidas (días >= 0)
-        if (daysUntilDue >= 0) {
-          const clientName = invoice.client?.name || `Cliente ID ${invoice.clientId}`;
-          const serviceName = invoice.service?.name || `Servicio ID ${invoice.serviceId}`;
+        // Mostrar TODAS las facturas pendientes (incluidas las vencidas)
+        const clientName = invoice.client?.name || `Cliente ID ${invoice.clientId}`;
+        const serviceName = invoice.service?.name || `Servicio ID ${invoice.serviceId}`;
 
-          upcomingPayments.push({
-            id: `inv-${invoice.id}`,
-            invoiceNumber: invoice.number,
-            clientName: clientName,
-            serviceName: serviceName,
-            date: dueDate,
-            daysLeft: daysUntilDue,
-            type: "invoice",
-            entityId: invoice.id,
-            amount: pendingAmount,
-            totalAmount: totalAmount,
-            paidAmount: paidAmount
-          });
-        }
+        upcomingPayments.push({
+          id: `inv-${invoice.id}`,
+          invoiceNumber: invoice.number,
+          clientName: clientName,
+          serviceName: serviceName,
+          date: dueDate,
+          daysLeft: daysUntilDue,
+          type: "invoice",
+          entityId: invoice.id,
+          amount: pendingAmount,
+          totalAmount: totalAmount,
+          paidAmount: paidAmount,
+          isOverdue: daysUntilDue < 0 // Marcar si está vencida
+        });
       });
     }
 
@@ -2802,14 +2801,23 @@ async function loadUpcomingDeadlines() {
       item.className = "upcoming-item";
 
       // Aplicar colores según días restantes:
-      // <= 5 días: rojo (danger)
+      // Vencidas o <= 5 días: rojo (danger)
       // 6-10 días: amarillo (warning)
       // >= 11 días: azul (info)
       let daysLabelClass = "days-info"; // azul por defecto para >= 11 días
-      if (payment.daysLeft <= 5) {
-        daysLabelClass = "days-danger"; // rojo
+      if (payment.isOverdue || payment.daysLeft <= 5) {
+        daysLabelClass = "days-danger"; // rojo para vencidas o próximas a vencer
       } else if (payment.daysLeft >= 6 && payment.daysLeft <= 10) {
         daysLabelClass = "days-warning"; // amarillo
+      }
+
+      // Texto para días: si está vencida, mostrar "Vencida hace X días"
+      let daysText = '';
+      if (payment.isOverdue) {
+        const daysOverdue = Math.abs(payment.daysLeft);
+        daysText = `Vencida hace ${daysOverdue} ${daysOverdue === 1 ? 'día' : 'días'}`;
+      } else {
+        daysText = `${payment.daysLeft} ${payment.daysLeft === 1 ? 'día' : 'días'}`;
       }
 
       item.innerHTML = `
@@ -2820,7 +2828,7 @@ async function loadUpcomingDeadlines() {
         </div>
         <div class="upcoming-date">
           <span>${payment.date.toLocaleDateString()}</span>
-          <div class="days-label ${daysLabelClass}">${payment.daysLeft} ${payment.daysLeft === 1 ? 'día' : 'días'}</div>
+          <div class="days-label ${daysLabelClass}">${daysText}</div>
         </div>`;
 
       item.addEventListener("click", () => {
