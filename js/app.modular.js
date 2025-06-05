@@ -287,13 +287,16 @@ prepareCalendarEvents = async function() {
       }&year=${currentCalendarYear}`
     );
 
-    console.log('🔍 DEBUG: Respuesta de la API calendar/events:', calendarData);
-
+    console.log('🔍 DEBUG: Respuesta completa de la API calendar/events:', calendarData);
+    console.log('🔍 DEBUG: Tipo de respuesta:', typeof calendarData);
+    console.log('🔍 DEBUG: ¿Tiene property data?:', calendarData && calendarData.hasOwnProperty('data'));
+    
     // Verificar si la respuesta tiene la estructura esperada
     const events = calendarData && calendarData.data ? calendarData.data : (Array.isArray(calendarData) ? calendarData : []);
     console.log('🔍 DEBUG: Array de eventos extraído:', events);
+    console.log('🔍 DEBUG: Cantidad de eventos:', events ? events.length : 0);
 
-    if (events && events.length > 0) {
+    if (events && events.length >= 0) {
       // Mapear la respuesta de la API al formato de eventos del calendario
       events.forEach((event) => {
         const eventDate = new Date(event.date);
@@ -304,29 +307,39 @@ prepareCalendarEvents = async function() {
           type: event.type,
           invoiceId: event.invoiceId,
           clientId: event.clientId,
+          clientName: event.clientName,
+          serviceName: event.serviceName,
+          serviceType: event.serviceType,
+          contractedServiceId: event.contractedServiceId,
+          amount: event.amount,
+          paidAmount: event.paidAmount,
+          pendingAmount: event.pendingAmount,
+          status: event.status,
+          invoiceNumber: event.invoiceNumber,
         });
       });
       console.log('🔍 DEBUG: Eventos procesados desde API:', calendarEvents);
     } else {
-      console.log('🔍 DEBUG: No se recibieron eventos de la API, intentando preparación manual...');
+      console.log('🔍 DEBUG: No hay eventos para este mes desde la API (esto es normal si no hay pagos programados)');
     }
+    console.log('🔍 DEBUG: ✅ USANDO API PRINCIPAL - NO ejecutando fallback manual');
   } catch (error) {
     console.error("🚨 DEBUG: Error preparando eventos del calendario:", error);
-    console.log('🔍 DEBUG: Ejecutando fallback - preparación manual...');
-    // Fallback a preparación manual si la API falla
+    console.log('🔍 DEBUG: ERROR DETALLADO:', error.message, error.status);
+    console.log('🔍 DEBUG: Ejecutando fallback mientras se corrige el backend...');
     await prepareCalendarEventsManually();
   }
   console.log('🔍 DEBUG: Eventos finales del calendario:', calendarEvents);
 };
 
 prepareCalendarEventsManually = async function() {
-  console.log('🔍 DEBUG: Ejecutando prepareCalendarEventsManually (fallback)...');
+  console.log('🚨 DEBUG: ⚠️ EJECUTANDO FALLBACK MANUAL - La API principal falló ⚠️');
   try {
     calendarEvents = [];
 
-    // Cargar servicios contratados con próximos pagos
+    // Cargar servicios contratados activos con próximos pagos
     const contractedServicesResponse = await fetchWithAuth(
-      `${API_BASE_URL}/contracted-services`
+      `${API_BASE_URL}/contracted-services?status=activo`
     );
     console.log('🔍 DEBUG: Respuesta de contracted-services:', contractedServicesResponse);
     if (
@@ -335,10 +348,10 @@ prepareCalendarEventsManually = async function() {
       Array.isArray(contractedServicesResponse.data)
     ) {
       contractedServicesResponse.data.forEach((cs) => {
-        if (cs.nextPayment) {
+        if (cs.nextPayment && cs.status === 'activo') {
           const client = cs.Client || cs.client;
           const service = cs.Service || cs.service;
-          if (client && service) {
+          if (client && service && cs.price > 0) {
             calendarEvents.push({
               date: new Date(cs.nextPayment),
               title: `Pago: ${client.name}`,
@@ -357,16 +370,19 @@ prepareCalendarEventsManually = async function() {
       });
     }
 
-    // Cargar facturas pendientes con fechas de vencimiento
+    // Cargar facturas pendientes con fechas de vencimiento (excluir pagadas)
     const invoicesResponse = await fetchWithAuth(
-      `${API_BASE_URL}/invoices?status=pendiente`
+      `${API_BASE_URL}/invoices`
     );
     if (invoicesResponse && Array.isArray(invoicesResponse)) {
       invoicesResponse.forEach((invoice) => {
-        if (invoice.dueDate) {
+        if (invoice.dueDate && invoice.status !== 'pagada') {
           const client = invoice.Client || invoice.client;
           const service = invoice.Service || invoice.service;
-          if (client && service) {
+          const pendingAmount = parseFloat(invoice.amount) - parseFloat(invoice.paidAmount || 0);
+          
+          // Solo agregar al calendario si tiene monto pendiente > 0
+          if (client && service && pendingAmount > 0) {
             calendarEvents.push({
               date: new Date(invoice.dueDate),
               title: `Vencimiento: ${invoice.number}`,
@@ -374,6 +390,13 @@ prepareCalendarEventsManually = async function() {
               type: "invoice",
               invoiceId: invoice.id,
               clientId: invoice.clientId,
+              amount: parseFloat(invoice.amount),
+              paidAmount: parseFloat(invoice.paidAmount || 0),
+              pendingAmount: pendingAmount,
+              status: invoice.status,
+              invoiceNumber: invoice.number,
+              clientName: client.name,
+              serviceName: service.name,
             });
           }
         }
@@ -2678,37 +2701,25 @@ async function loadUpcomingDeadlines() {
     const API_BASE_URL = "http://localhost:5000/api";
     const today = new Date();
 
+    // OBTENER SOLO DATOS REALES DE LA BASE DE DATOS
     const [contractedServicesResponse, invoicesResponse] = await Promise.all([
       fetchWithAuth(`${API_BASE_URL}/contracted-services?status=activo`),
-      fetchWithAuth(`${API_BASE_URL}/invoices?status=pendiente`),
+      fetchWithAuth(`${API_BASE_URL}/invoices`), // Todas las facturas, filtraremos por monto pendiente
     ]);
 
     const upcomingPayments = [];
-    console.log("🔍 DEBUG: Servicios contratados recibidos:", contractedServicesResponse.data?.length || 0);
-    
-    // Si no hay datos del backend, crear datos de prueba
-    if (!contractedServicesResponse.data || contractedServicesResponse.data.length === 0) {
-      console.log("🔍 DEBUG: No hay datos del backend - mostrando mensaje vacío");
-      contractedServicesResponse.data = [];
-    }
-    
-    // DEBUG: Inspeccionar estructura del primer servicio
-    if (contractedServicesResponse.data && contractedServicesResponse.data.length > 0) {
-      console.log("🔍 DEBUG: Primer servicio contratado (datos crudos):", contractedServicesResponse.data[0]);
-    }
+    console.log("🔍 DEBUG: Servicios contratados recibidos desde BD:", contractedServicesResponse.data?.length || 0);
+    console.log("🔍 DEBUG: Facturas recibidas desde BD:", invoicesResponse.data?.length || 0);
 
+    // PROCESAR SERVICIOS CONTRATADOS SOLO CON DATOS REALES DE LA BD
     if (contractedServicesResponse.data && contractedServicesResponse.data.length > 0) {
-      contractedServicesResponse.data.forEach((cs, index) => {
-        // Crear fechas de próximo pago para mostrar datos
-        let nextPaymentDate;
-        if (cs.nextPayment) {
-          nextPaymentDate = new Date(cs.nextPayment);
-        } else {
-          // Crear fechas próximas para todos los servicios
-          const baseDate = new Date();
-          baseDate.setDate(baseDate.getDate() + 5 + (index * 3)); // Espaciar cada 3 días
-          nextPaymentDate = baseDate;
+      contractedServicesResponse.data.forEach((cs) => {
+        // VALIDACIÓN ESTRICTA: Solo servicios con datos completos de la BD
+        if (!cs.nextPayment || !cs.id || cs.status !== 'activo') {
+          console.log("🔍 DEBUG: Saltando servicio sin datos válidos:", cs.id);
+          return;
         }
+        const nextPaymentDate = new Date(cs.nextPayment);
         
         const daysUntilPayment = Math.ceil((nextPaymentDate - today) / (1000 * 60 * 60 * 24));
 
@@ -2729,38 +2740,57 @@ async function loadUpcomingDeadlines() {
       });
     }
 
+    // PROCESAR FACTURAS SOLO CON DATOS REALES DE LA BD  
     if (invoicesResponse.data && invoicesResponse.data.length > 0) {
       invoicesResponse.data.forEach((invoice) => {
-        if (invoice.dueDate) {
-          const dueDate = new Date(invoice.dueDate);
-          const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+        // VALIDACIÓN ESTRICTA: Solo facturas con datos completos de la BD
+        if (!invoice.dueDate || !invoice.id || !invoice.amount) {
+          console.log("🔍 DEBUG: Saltando factura sin datos válidos:", invoice.id);
+          return;
+        }
+        
+        // Verificar que la factura tenga monto pendiente > 0 (DATOS REALES DE BD)
+        const totalAmount = parseFloat(invoice.amount) || 0;
+        const paidAmount = parseFloat(invoice.paidAmount) || 0;
+        const pendingAmount = totalAmount - paidAmount;
+        
+        // Solo mostrar facturas con monto pendiente > 0
+        if (pendingAmount <= 0) {
+          console.log("🔍 DEBUG: Saltando factura completamente pagada:", invoice.number);
+          return;
+        }
+        
+        const dueDate = new Date(invoice.dueDate);
+        const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
 
-          if (daysUntilDue >= 0 && daysUntilDue <= 30) {
-            // ----- LA CORRECCIÓN ESTÁ AQUÍ -----
-            const clientName = invoice.client?.name || invoice.clientName || `Cliente ID ${invoice.clientId}`;
-            const serviceName = invoice.service?.name || invoice.serviceName || `Servicio ID ${invoice.serviceId}`;
-            
-            upcomingPayments.push({
-              id: `inv-${invoice.id}`,
-              clientName: clientName,
-              serviceName: serviceName,
-              date: dueDate,
-              daysLeft: daysUntilDue,
-              type: "invoice",
-              entityId: invoice.id,
-            });
-          }
+        if (daysUntilDue >= 0 && daysUntilDue <= 30) {
+          const clientName = invoice.client?.name || invoice.clientName || `Cliente ID ${invoice.clientId}`;
+          const serviceName = invoice.service?.name || invoice.serviceName || `Servicio ID ${invoice.serviceId}`;
+          
+          upcomingPayments.push({
+            id: `inv-${invoice.id}`,
+            clientName: clientName,
+            serviceName: serviceName,
+            date: dueDate,
+            daysLeft: daysUntilDue,
+            type: "invoice",
+            entityId: invoice.id,
+            pendingAmount: pendingAmount,
+          });
         }
       });
     }
 
     upcomingPayments.sort((a, b) => a.daysLeft - b.daysLeft);
     const paymentsToShow = upcomingPayments.slice(0, 5);
+    
+    console.log("🔍 DEBUG: Próximos vencimientos finales (SOLO DATOS DE BD):", paymentsToShow.length);
+    console.log("🔍 DEBUG: Detalle de próximos vencimientos:", paymentsToShow);
 
     upcomingContainer.innerHTML = "";
 
     if (paymentsToShow.length === 0) {
-      upcomingContainer.innerHTML = '<p class="text-muted">No hay pagos próximos en los siguientes 30 días.</p>';
+      upcomingContainer.innerHTML = '<p class="text-muted">No hay pagos próximos en los siguientes 30 días (datos de BD).</p>';
       return;
     }
 
@@ -4953,27 +4983,65 @@ async function handleInvoiceData(invoice, eventTitleEl, eventDetailsEl) {
 
 async function downloadInvoiceDocument(invoiceId) {
   try {
-    // Cargar datos de la factura desde la API
-    const invoice = await fetchWithAuth(
-      `${API_BASE_URL}/invoices/${invoiceId}`
-    );
+    // Cargar datos del pago desde la API
+    const response = await fetchWithAuth(`${API_BASE_URL}/invoices/${invoiceId}`);
+    const invoice = response.data || response;
+    
     if (!invoice) {
-      showToast("error", "Error", "Proforma no encontrada");
+      showToast("error", "Error", "Pago no encontrado");
       return;
     }
 
-    if (invoice.document) {
-      // Si ya tiene documento, descargarlo
-      showToast("success", "Descarga", `Descargando: ${invoice.document.name}`);
-      // Aquí se implementaría la descarga real del documento
-      // window.open(`${API_BASE_URL}/invoices/${invoiceId}/document`, '_blank');
+    if (invoice.document && invoice.document.path) {
+      // Si tiene documento/foto, descargarlo
+      console.log(`📥 Iniciando descarga: ${invoice.document.name}`);
+      showToast("info", "Descarga", `Descargando: ${invoice.document.name}`);
+      
+      // Crear enlace temporal para descarga
+      const downloadUrl = `${API_BASE_URL}/invoices/${invoiceId}/document`;
+      
+      // Usar fetch con token para descargar
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(downloadUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        // Obtener el blob del archivo
+        const blob = await response.blob();
+        
+        // Crear URL temporal y descargar
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = invoice.document.name || `pago-${invoice.number}-documento`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Limpiar
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        showToast("success", "Descarga completada", `Archivo descargado: ${invoice.document.name}`);
+        
+      } catch (downloadError) {
+        console.error("Error en la descarga:", downloadError);
+        showToast("error", "Error de descarga", "No se pudo descargar el archivo");
+      }
+      
     } else {
-      // Si no tiene documento, generar PDF
-      await generateInvoicePDF(invoice);
+      showToast("warning", "Sin archivo", "Este pago no tiene archivo adjunto");
     }
   } catch (error) {
     console.error("Error al descargar documento:", error);
-    showToast("error", "Error", "No se pudo descargar el documento");
+    showToast("error", "Error", "No se pudo acceder al pago");
   }
 }
 
