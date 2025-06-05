@@ -268,10 +268,6 @@ renderInvoicesTable = function() {
       displayStatus === 'pagada' 
         ? `<div class="action-btn payment-btn disabled" title="Pago completado" style="opacity: 0.5; cursor: not-allowed;"><i class="fas fa-check-circle"></i></div>`
         : `<div class="action-btn payment-btn" data-action="payment" data-invoice-id="${invoice.id}" title="Agregar pago"><i class="fas fa-money-bill-wave"></i></div>`
-    }${
-      invoice.document
-        ? `<div class="action-btn download-btn" data-action="download" data-invoice-id="${invoice.id}"><i class="fas fa-download"></i></div>`
-        : ""
     }<div class="action-btn whatsapp-btn" data-action="whatsapp" data-invoice-id="${
       invoice.id
     }"><i class="fab fa-whatsapp"></i></div><div class="action-btn tracking-btn" data-action="tracking" data-invoice-id="${
