@@ -800,7 +800,7 @@ openInvoiceModal = async function(invoiceId = null, contractedService = null) {
     document.getElementById("invoice-id").value = "";
 
     if (invoiceId) {
-      modalTitle.textContent = "Editar Proforma";
+      modalTitle.textContent = "Editar Pago";
 
       // Cargar datos de la factura desde API con datos relacionados
       const response = await fetchWithAuth(
@@ -824,7 +824,7 @@ openInvoiceModal = async function(invoiceId = null, contractedService = null) {
         whatsappBtn.disabled = false;
       }
     } else if (contractedService) {
-      modalTitle.textContent = "Nueva Proforma";
+      modalTitle.textContent = "Nuevo Pago";
       const today = new Date();
       const dueDate = new Date();
       dueDate.setDate(today.getDate() + contractedService.invoiceDays);
@@ -843,7 +843,7 @@ openInvoiceModal = async function(invoiceId = null, contractedService = null) {
       await generateInvoiceNumber();
       whatsappBtn.disabled = false; // Can be enabled once client selected
     } else {
-      modalTitle.textContent = "Nueva Proforma";
+      modalTitle.textContent = "Nuevo Pago";
       const today = new Date();
       const dueDate = new Date();
       dueDate.setDate(today.getDate() + 30);
@@ -1279,48 +1279,49 @@ handleInvoiceSubmit = async function(event) {
     const invoiceId = document.getElementById("invoice-id").value;
     const isEditing = invoiceId !== "";
     const fileInput = document.getElementById("invoice-document");
-    let documentData = null;
 
+    // Crear FormData para enviar archivos
+    const formData = new FormData();
+    formData.append('number', document.getElementById("invoice-number").value);
+    formData.append('clientId', document.getElementById("invoice-client").value);
+    formData.append('serviceId', document.getElementById("invoice-service").value);
+    formData.append('amount', document.getElementById("invoice-amount").value);
+    formData.append('issueDate', document.getElementById("invoice-issue-date").value);
+    formData.append('dueDate', document.getElementById("invoice-due-date").value);
+    formData.append('status', document.getElementById("invoice-status").value);
+    formData.append('documentType', document.getElementById("invoice-document-type").value);
+
+    // Agregar archivo si existe
     if (fileInput && fileInput.files && fileInput.files.length > 0) {
-      const file = fileInput.files[0];
-      documentData = { name: file.name, type: file.type, size: file.size };
-    } else if (isEditing) {
-      // Cargar documento existente desde API si estamos editando
-      const existingInvoice = await fetchWithAuth(
-        `${API_BASE_URL}/invoices/${invoiceId}`
-      );
-      if (existingInvoice) documentData = existingInvoice.document;
+      formData.append('invoiceDocument', fileInput.files[0]);
     }
-
-    const invoiceData = {
-      number: document.getElementById("invoice-number").value,
-      clientId: parseInt(document.getElementById("invoice-client").value),
-      serviceId: parseInt(document.getElementById("invoice-service").value),
-      amount: parseFloat(document.getElementById("invoice-amount").value),
-      issueDate: document.getElementById("invoice-issue-date").value,
-      dueDate: document.getElementById("invoice-due-date").value,
-      status: document.getElementById("invoice-status").value,
-      document: documentData,
-      documentType: document.getElementById("invoice-document-type").value,
-    };
 
     // Definir URL y método para la API
     let url = `${API_BASE_URL}/invoices`;
     let method = "POST";
+
+    console.log("🔍 DEBUG handleInvoiceSubmit - Datos a enviar:", {
+      number: formData.get('number'),
+      clientId: formData.get('clientId'),
+      hasFile: fileInput && fileInput.files && fileInput.files.length > 0,
+      isEditing,
+      method,
+      url
+    });
 
     if (isEditing) {
       url = `${API_BASE_URL}/invoices/${invoiceId}`;
       method = "PUT";
     }
 
-    // Enviar datos a la API
-    const result = await fetchWithAuth(url, method, invoiceData);
+    // Enviar datos a la API usando FormData
+    const result = await fetchWithAuthFormData(url, method, formData);
 
     if (result) {
       // Mostrar mensaje de éxito
       const successMessage = isEditing
-        ? "Proforma actualizada exitosamente"
-        : "Proforma creada exitosamente";
+        ? "Pago actualizado exitosamente"
+        : "Pago creado exitosamente";
       showToast("success", successMessage, "");
 
       // Habilitar botón de WhatsApp
@@ -1332,6 +1333,12 @@ handleInvoiceSubmit = async function(event) {
         document.getElementById("invoice-id").value = result.id;
       }
 
+      // Cerrar modal
+      const modal = document.getElementById("invoice-modal");
+      if (modal) {
+        modal.style.display = "none";
+      }
+
       // Recargar datos
       if (typeof loadInvoicesData === "function") await loadInvoicesData();
       if (typeof loadDashboardData === "function") await loadDashboardData();
@@ -1339,7 +1346,7 @@ handleInvoiceSubmit = async function(event) {
     }
   } catch (error) {
     console.error("Error guardando factura:", error);
-    showToast("error", "Error", "No se pudo guardar la factura");
+    showToast("error", "Error", "No se pudo guardar el pago");
   } finally {
     // Restaurar estado del botón
     if (submitButton) {
@@ -1390,6 +1397,56 @@ async function fetchWithAuth(url, method = "GET", body = null) {
 
   // 🔍 DEBUG: Log de los datos recibidos
   console.log('🔍 fetchWithAuth - Response data:', data);
+
+  // Verificar si la respuesta es exitosa
+  if (!response.ok) {
+    // Manejar error de autenticación
+    if (response.status === 401) {
+      handleSessionExpired();
+    }
+    throw new Error(data.message || `Error en la petición: ${response.status}`);
+  }
+
+  return data;
+}
+
+// Función similar a fetchWithAuth pero para FormData (archivos)
+async function fetchWithAuthFormData(url, method = "POST", formData) {
+  // Obtener token del localStorage
+  const token = localStorage.getItem("authToken");
+
+  if (!token) {
+    throw new Error("No hay token de autenticación");
+  }
+
+  // Configurar opciones de la petición (sin Content-Type para FormData)
+  const options = {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // NO agregar Content-Type para FormData, el navegador lo hace automáticamente
+    },
+    body: formData
+  };
+
+  // 🔍 DEBUG: Log de la petición
+  console.log(`🔍 fetchWithAuthFormData - ${method} ${url}`);
+  console.log('🔍 fetchWithAuthFormData - Headers:', options.headers);
+  console.log('🔍 fetchWithAuthFormData - Token presente:', !!token);
+  console.log('🔍 fetchWithAuthFormData - Token (primeros 20 chars):', token ? token.substring(0, 20) + '...' : 'N/A');
+
+  // Realizar la petición
+  const response = await fetch(url, options);
+
+  // 🔍 DEBUG: Log de la respuesta
+  console.log(`🔍 fetchWithAuthFormData - Response status: ${response.status} ${response.statusText}`);
+  console.log('🔍 fetchWithAuthFormData - Response headers:', Object.fromEntries(response.headers.entries()));
+
+  // Procesar la respuesta
+  const data = await response.json();
+
+  // 🔍 DEBUG: Log de los datos recibidos
+  console.log('🔍 fetchWithAuthFormData - Response data:', data);
 
   // Verificar si la respuesta es exitosa
   if (!response.ok) {
@@ -4813,7 +4870,7 @@ async function handleInvoiceData(invoice, eventTitleEl, eventDetailsEl) {
   }
 
   const details = `
-          <h3>Detalles de la Proforma</h3>
+          <h3>Detalles de pago</h3>
           ${warningMessage}
           <p><strong>Número:</strong> ${invoice.number}</p>
           <p><strong>Tipo:</strong> ${
@@ -4865,7 +4922,7 @@ async function handleInvoiceData(invoice, eventTitleEl, eventDetailsEl) {
 
   // Actualizar modal con los datos
   console.log('🔍 DEBUG handleInvoiceData - Actualizando modal con datos...');
-  if (eventTitleEl) eventTitleEl.textContent = `Proforma: ${invoice.number}`;
+  if (eventTitleEl) eventTitleEl.textContent = `Historial de pago: ${invoice.number}`;
   if (eventDetailsEl) eventDetailsEl.innerHTML = details;
   console.log('🔍 DEBUG handleInvoiceData - Modal actualizado exitosamente');
 }
@@ -5030,15 +5087,48 @@ async function generateInvoiceNumber() {
   if (!invoiceNumberEl) return;
 
   try {
-    // Obtener la última factura desde la API
-    const invoices = await fetchWithAuth(`${API_BASE_URL}/invoices`);
-    const lastInvoice =
-      invoices && invoices.length > 0 ? invoices[invoices.length - 1] : null;
-    const lastNumber = lastInvoice ? lastInvoice.number : "F001-000";
-    const parts = lastNumber.split("-");
-    const series = parts[0];
-    const number = parseInt(parts[1]) + 1;
-    invoiceNumberEl.value = `${series}-${number.toString().padStart(3, "0")}`;
+    // Obtener todas las facturas desde la API (incluidas las eliminadas)
+    const result = await fetchWithAuth(`${API_BASE_URL}/invoices?includeDeleted=true`);
+    const invoices = result?.data || result || [];
+    
+    if (!invoices || invoices.length === 0) {
+      // No hay facturas, empezar con F001-001
+      invoiceNumberEl.value = "F001-001";
+      return;
+    }
+
+    // Encontrar el número más alto
+    let maxNumber = 0;
+    let series = "F001";
+    
+    invoices.forEach(invoice => {
+      if (invoice.number) {
+        const parts = invoice.number.split("-");
+        if (parts.length === 2) {
+          const currentSeries = parts[0];
+          const currentNumber = parseInt(parts[1]);
+          
+          if (currentSeries === series && !isNaN(currentNumber) && currentNumber > maxNumber) {
+            maxNumber = currentNumber;
+          }
+        }
+      }
+    });
+    
+    // Generar el siguiente número
+    const nextNumber = maxNumber + 1;
+    const generatedNumber = `${series}-${nextNumber.toString().padStart(3, "0")}`;
+    
+    console.log("🔍 DEBUG generateInvoiceNumber:", {
+      totalInvoices: invoices.length,
+      maxNumber,
+      nextNumber,
+      generatedNumber,
+      existingNumbers: invoices.map(i => i.number)
+    });
+    
+    invoiceNumberEl.value = generatedNumber;
+    
   } catch (error) {
     console.error("Error generando número de factura:", error);
     // Fallback en caso de error
