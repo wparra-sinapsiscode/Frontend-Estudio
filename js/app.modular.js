@@ -819,8 +819,27 @@ openInvoiceModal = async function(invoiceId = null, contractedService = null) {
           invoice.documentType || "factura";
         await updateInvoiceServices(); // Load services for this client
         document.getElementById("invoice-service").value = invoice.serviceId;
-        if (invoice.document && docPreview)
-          docPreview.innerHTML = `<div class="document-item"><i class="fas fa-file-alt"></i><span>${invoice.document.name}</span></div>`;
+        if (invoice.document && docPreview) {
+          // Mostrar vista previa del documento existente
+          const isImage = invoice.document.mimetype && invoice.document.mimetype.startsWith('image/');
+          if (isImage) {
+            docPreview.innerHTML = `
+              <div class="document-item">
+                <img src="${invoice.document.path}" alt="Documento actual" style="max-width: 200px; max-height: 150px; border-radius: 4px;">
+                <p><i class="fas fa-file-image"></i> ${invoice.document.name}</p>
+                <small>Selecciona un nuevo archivo para reemplazar</small>
+              </div>
+            `;
+          } else {
+            docPreview.innerHTML = `
+              <div class="document-item">
+                <i class="fas fa-file-alt"></i>
+                <span>${invoice.document.name}</span>
+                <small>Selecciona un nuevo archivo para reemplazar</small>
+              </div>
+            `;
+          }
+        }
         whatsappBtn.disabled = false;
       }
     } else if (contractedService) {
