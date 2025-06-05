@@ -2355,6 +2355,214 @@ input[type="file"] {
   }
 }
 
+/* Sección de Seguimiento de Vencidos */
+.vencidos-section {
+  margin-top: 2rem;
+  width: 90%;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.vencidos-section .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.vencidos-section h3 {
+  color: var(--danger-color);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.vencidos-counter {
+  display: flex;
+  align-items: center;
+}
+
+.counter-badge {
+  background-color: var(--danger-color);
+  color: white;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+}
+
+.vencidos-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.vencido-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius);
+  background-color: var(--card-background);
+  border-left: 4px solid;
+  box-shadow: var(--shadow);
+  transition: transform var(--transition-speed);
+}
+
+.vencido-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.vencido-item.urgente {
+  border-left-color: var(--warning-color);
+  background-color: rgba(255, 152, 0, 0.02);
+}
+
+.vencido-item.critico {
+  border-left-color: var(--danger-color);
+  background-color: rgba(244, 67, 54, 0.02);
+}
+
+.vencido-item.importante {
+  border-left-color: var(--info-color);
+  background-color: rgba(33, 150, 243, 0.02);
+}
+
+.vencido-info {
+  flex-grow: 1;
+}
+
+.vencido-client {
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  color: var(--text-color);
+  margin-bottom: var(--spacing-xs);
+}
+
+.vencido-detail {
+  font-size: var(--font-size-sm);
+  color: var(--text-light-color);
+  margin-bottom: var(--spacing-xs);
+}
+
+.vencido-status {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.vencido-item.urgente .vencido-status {
+  color: var(--warning-color);
+}
+
+.vencido-item.critico .vencido-status {
+  color: var(--danger-color);
+}
+
+.vencido-item.importante .vencido-status {
+  color: var(--info-color);
+}
+
+.vencido-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.vencido-actions .action-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--border-radius);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-speed);
+  font-size: var(--font-size-sm);
+}
+
+.llamar-btn {
+  background-color: rgba(76, 175, 80, 0.1);
+  color: var(--success-color);
+}
+
+.llamar-btn:hover {
+  background-color: rgba(76, 175, 80, 0.2);
+}
+
+.llamar-btn.contacted {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.email-btn {
+  background-color: rgba(33, 150, 243, 0.1);
+  color: var(--info-color);
+}
+
+.email-btn:hover {
+  background-color: rgba(33, 150, 243, 0.2);
+}
+
+.visita-btn {
+  background-color: rgba(156, 39, 176, 0.1);
+  color: #9c27b0;
+}
+
+.visita-btn:hover {
+  background-color: rgba(156, 39, 176, 0.2);
+}
+
+/* Responsive para vencidos */
+@media screen and (max-width: 768px) {
+  .vencidos-section {
+    margin-top: var(--spacing-lg);
+    width: 95%;
+  }
+  
+  .vencido-item {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+  }
+  
+  .vencido-info {
+    text-align: center;
+  }
+  
+  .vencido-actions {
+    justify-content: center;
+  }
+  
+  .vencidos-section .section-header {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    text-align: center;
+  }
+}
+
+@media screen and (max-width: 576px) {
+  .vencido-actions .action-btn {
+    width: 32px;
+    height: 32px;
+    font-size: var(--font-size-xs);
+  }
+  
+  .vencido-client {
+    font-size: var(--font-size-sm);
+  }
+  
+  .vencido-detail {
+    font-size: var(--font-size-xs);
+  }
+}
+
 /* Media query para impresión */
 @media print {
   .sidebar,

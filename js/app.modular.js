@@ -2890,7 +2890,9 @@ renderClientsTable = function() {
       client.id
     })"><i class="fas fa-eye"></i></div><div class="action-btn edit-btn" onclick="openClientModal(${
       client.id
-    })"><i class="fas fa-edit"></i></div><div class="action-btn delete-btn" onclick="confirmDeleteClient(${
+    })"><i class="fas fa-edit"></i></div><div class="action-btn export-btn" onclick="exportClientInvoicesCSV(${
+      client.id
+    })" title="Exportar facturas a CSV"><i class="fas fa-file-csv"></i></div><div class="action-btn delete-btn" onclick="confirmDeleteClient(${
       client.id
     })"><i class="fas fa-trash"></i></div></div></td>`;
     tableBody.appendChild(row);
@@ -6329,6 +6331,267 @@ async function loadDashboardComponents() {
   } catch (error) {
     console.error("Error al cargar componentes del dashboard:", error);
     return false;
+  }
+}
+
+// 🎯 Función para exportar facturas del cliente a Excel (XLS)
+async function exportClientInvoicesCSV(clientId) {
+  try {
+    console.log(`🔍 Exportando facturas del cliente ${clientId} a Excel...`);
+    
+    // Mostrar indicador de carga
+    showToast('info', 'Procesando', 'Generando archivo Excel profesional...', 5000);
+    
+    // Obtener datos del cliente
+    const API_BASE_URL = "http://localhost:5000/api";
+    const clientResponse = await fetchWithAuth(`${API_BASE_URL}/clients/${clientId}`);
+    if (!clientResponse.success) {
+      showToast('error', 'Error', 'No se pudo obtener información del cliente');
+      return;
+    }
+    
+    const client = clientResponse.data;
+    
+    // Obtener facturas del cliente con relaciones
+    const invoicesResponse = await fetchWithAuth(`${API_BASE_URL}/invoices?clientId=${clientId}&includeDeleted=false`);
+    if (!invoicesResponse.success) {
+      showToast('error', 'Error', 'No se pudieron obtener las facturas del cliente');
+      return;
+    }
+    
+    const invoices = invoicesResponse.data || [];
+    
+    console.log(`🔍 Cliente: ${client.name}, Facturas encontradas: ${invoices.length}`);
+    
+    // Calcular resumen financiero
+    const totalFacturas = invoices.length;
+    const montoTotal = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount || 0), 0);
+    const montoPagado = invoices.reduce((sum, inv) => sum + parseFloat(inv.paidAmount || 0), 0);
+    const montoPendiente = montoTotal - montoPagado;
+    const facturasPagadas = invoices.filter(inv => inv.status === 'pagada').length;
+    const facturasPendientes = invoices.filter(inv => inv.status === 'pendiente').length;
+    const facturasVencidas = invoices.filter(inv => inv.status === 'vencida').length;
+    
+    // Crear libro de Excel
+    const workbook = XLSX.utils.book_new();
+    const today = new Date().toLocaleDateString();
+    
+    // 📊 HOJA 1: RESUMEN DEL CLIENTE
+    const resumenData = [
+      ['REPORTE DE FACTURAS - ' + client.name.toUpperCase()],
+      ['Generado el: ' + today],
+      [], // Fila vacía
+      ['=== INFORMACIÓN DEL CLIENTE ==='],
+      ['Campo', 'Valor', '', 'Campo', 'Valor'],
+      ['Nombre', client.name, '', 'RUC', client.ruc],
+      ['Teléfono', client.phone, '', 'Email', client.email],
+      ['Dirección', client.address, '', 'Estado', client.status.toUpperCase()],
+      ['Fecha de Ingreso', new Date(client.joinDate).toLocaleDateString(), '', 'Facturas Totales', totalFacturas],
+      [], // Fila vacía
+      ['=== RESUMEN FINANCIERO ==='],
+      ['Concepto', 'Cantidad', 'Monto (S/.)', 'Porcentaje'],
+      ['Total de Facturas', totalFacturas, montoTotal.toFixed(2), '100.0%'],
+      ['Facturas Pagadas', facturasPagadas, montoPagado.toFixed(2), totalFacturas > 0 ? ((montoPagado/montoTotal)*100).toFixed(1) + '%' : '0%'],
+      ['Facturas Pendientes', facturasPendientes, montoPendiente.toFixed(2), totalFacturas > 0 ? ((montoPendiente/montoTotal)*100).toFixed(1) + '%' : '0%'],
+      ['Facturas Vencidas', facturasVencidas, '', totalFacturas > 0 ? ((facturasVencidas/totalFacturas)*100).toFixed(1) + '%' : '0%'],
+      [], // Fila vacía
+      ['=== ESTADÍSTICAS COMPLEMENTARIAS ==='],
+      ['Métrica', 'Valor'],
+      ['Promedio por Factura', 'S/. ' + (totalFacturas > 0 ? (montoTotal/totalFacturas).toFixed(2) : '0.00')],
+      ['Efectividad de Cobranza', (totalFacturas > 0 ? ((facturasPagadas/totalFacturas)*100).toFixed(1) : 0) + '%'],
+      ['Tiempo como Cliente', Math.floor((new Date() - new Date(client.joinDate)) / (1000 * 60 * 60 * 24)) + ' días'],
+      ['Última Factura', invoices.length > 0 ? new Date(Math.max(...invoices.map(f => new Date(f.issueDate)))).toLocaleDateString() : 'N/A']
+    ];
+    
+    const resumenWS = XLSX.utils.aoa_to_sheet(resumenData);
+    
+    // Configurar anchos de columna para la hoja de resumen
+    resumenWS['!cols'] = [
+      { width: 20 }, // Campo
+      { width: 30 }, // Valor
+      { width: 5 },  // Separador
+      { width: 20 }, // Campo 2
+      { width: 20 }  // Valor 2
+    ];
+    
+    XLSX.utils.book_append_sheet(workbook, resumenWS, 'Resumen');
+    
+    // 📄 HOJA 2: DETALLE DE FACTURAS
+    const facturasData = [
+      ['DETALLE DE FACTURAS'],
+      ['Cliente: ' + client.name],
+      [], // Fila vacía
+      ['N°', 'Número Factura', 'Servicio', 'F. Emisión', 'F. Vencimiento', 'Monto Total', 'Monto Pagado', 'Saldo Pendiente', 'Estado', 'Tipo Doc', 'Documento', 'N° Pagos']
+    ];
+    
+    invoices.forEach((factura, index) => {
+      const serviceName = factura.service ? factura.service.name : 'Sin servicio';
+      const montoFactura = parseFloat(factura.amount || 0);
+      const montoPagadoFactura = parseFloat(factura.paidAmount || 0);
+      const montoPendienteFactura = montoFactura - montoPagadoFactura;
+      const tieneDocumento = factura.document ? factura.document.name : 'Sin documento';
+      const numeroPagos = (factura.payments || []).length;
+      const estadoFormateado = factura.status.toUpperCase();
+      
+      facturasData.push([
+        index + 1,
+        factura.number,
+        serviceName,
+        new Date(factura.issueDate).toLocaleDateString(),
+        new Date(factura.dueDate).toLocaleDateString(),
+        montoFactura.toFixed(2),
+        montoPagadoFactura.toFixed(2),
+        montoPendienteFactura.toFixed(2),
+        estadoFormateado,
+        factura.documentType.toUpperCase(),
+        tieneDocumento,
+        numeroPagos
+      ]);
+    });
+    
+    // Agregar fila de totales
+    if (invoices.length > 0) {
+      facturasData.push([]); // Fila vacía
+      facturasData.push([
+        '', '', '', '', 'TOTALES:',
+        montoTotal.toFixed(2),
+        montoPagado.toFixed(2),
+        montoPendiente.toFixed(2),
+        '', '', '', ''
+      ]);
+    }
+    
+    const facturasWS = XLSX.utils.aoa_to_sheet(facturasData);
+    
+    // Configurar anchos de columna para facturas
+    facturasWS['!cols'] = [
+      { width: 5 },  // N°
+      { width: 12 }, // Número
+      { width: 25 }, // Servicio
+      { width: 12 }, // F. Emisión
+      { width: 12 }, // F. Vencimiento
+      { width: 12 }, // Monto Total
+      { width: 12 }, // Monto Pagado
+      { width: 12 }, // Saldo
+      { width: 10 }, // Estado
+      { width: 10 }, // Tipo Doc
+      { width: 20 }, // Documento
+      { width: 8 }   // N° Pagos
+    ];
+    
+    XLSX.utils.book_append_sheet(workbook, facturasWS, 'Facturas');
+    
+    // 💰 HOJA 3: HISTORIAL DE PAGOS (Si existen)
+    const facturasConPagos = invoices.filter(f => f.payments && f.payments.length > 0);
+    if (facturasConPagos.length > 0) {
+      const pagosData = [
+        ['HISTORIAL DE PAGOS REALIZADOS'],
+        ['Cliente: ' + client.name],
+        [], // Fila vacía
+        ['N°', 'Factura', 'Fecha de Pago', 'Monto Pagado', 'Método de Pago', 'Comprobante', 'Observaciones']
+      ];
+      
+      let pagoIndex = 1;
+      let totalPagos = 0;
+      
+      facturasConPagos.forEach(factura => {
+        factura.payments.forEach(pago => {
+          const montoPago = parseFloat(pago.amount || 0);
+          totalPagos += montoPago;
+          
+          pagosData.push([
+            pagoIndex,
+            factura.number,
+            new Date(pago.date).toLocaleDateString(),
+            montoPago.toFixed(2),
+            pago.method.toUpperCase(),
+            pago.voucher || 'Sin comprobante',
+            pago.notes || 'Sin observaciones'
+          ]);
+          pagoIndex++;
+        });
+      });
+      
+      // Agregar fila de total
+      pagosData.push([]); // Fila vacía
+      pagosData.push([
+        '', '', 'TOTAL PAGOS:', totalPagos.toFixed(2), '', '', ''
+      ]);
+      
+      const pagosWS = XLSX.utils.aoa_to_sheet(pagosData);
+      
+      // Configurar anchos de columna para pagos
+      pagosWS['!cols'] = [
+        { width: 5 },  // N°
+        { width: 12 }, // Factura
+        { width: 12 }, // Fecha
+        { width: 12 }, // Monto
+        { width: 15 }, // Método
+        { width: 20 }, // Comprobante
+        { width: 30 }  // Observaciones
+      ];
+      
+      XLSX.utils.book_append_sheet(workbook, pagosWS, 'Pagos');
+    }
+    
+    // 📈 HOJA 4: ANÁLISIS Y GRÁFICOS (Datos para gráficos)
+    const analisisData = [
+      ['ANÁLISIS DE FACTURAS'],
+      ['Cliente: ' + client.name],
+      [], // Fila vacía
+      ['=== DISTRIBUCIÓN POR ESTADO ==='],
+      ['Estado', 'Cantidad', 'Porcentaje', 'Monto'],
+      ['PAGADAS', facturasPagadas, (totalFacturas > 0 ? ((facturasPagadas/totalFacturas)*100).toFixed(1) : 0) + '%', montoPagado.toFixed(2)],
+      ['PENDIENTES', facturasPendientes, (totalFacturas > 0 ? ((facturasPendientes/totalFacturas)*100).toFixed(1) : 0) + '%', montoPendiente.toFixed(2)],
+      ['VENCIDAS', facturasVencidas, (totalFacturas > 0 ? ((facturasVencidas/totalFacturas)*100).toFixed(1) : 0) + '%', '0.00'],
+      [], // Fila vacía
+      ['=== DISTRIBUCIÓN POR SERVICIO ==='],
+      ['Servicio', 'Facturas', 'Monto Total']
+    ];
+    
+    // Agrupar por servicios
+    const serviciosMap = {};
+    invoices.forEach(factura => {
+      const serviceName = factura.service ? factura.service.name : 'Sin servicio';
+      if (!serviciosMap[serviceName]) {
+        serviciosMap[serviceName] = { count: 0, total: 0 };
+      }
+      serviciosMap[serviceName].count++;
+      serviciosMap[serviceName].total += parseFloat(factura.amount || 0);
+    });
+    
+    Object.entries(serviciosMap).forEach(([servicio, data]) => {
+      analisisData.push([servicio, data.count, data.total.toFixed(2)]);
+    });
+    
+    const analisisWS = XLSX.utils.aoa_to_sheet(analisisData);
+    
+    // Configurar anchos de columna para análisis
+    analisisWS['!cols'] = [
+      { width: 25 }, // Servicio/Estado
+      { width: 10 }, // Cantidad
+      { width: 12 }, // Porcentaje
+      { width: 12 }  // Monto
+    ];
+    
+    XLSX.utils.book_append_sheet(workbook, analisisWS, 'Análisis');
+    
+    // 📥 DESCARGAR ARCHIVO EXCEL
+    const clientName = client.name.replace(/[^a-zA-Z0-9]/g, '-');
+    const todayISO = new Date().toISOString().split('T')[0];
+    const fileName = `facturas-${clientName}-${todayISO}.xlsx`;
+    
+    // Generar y descargar el archivo
+    XLSX.writeFile(workbook, fileName);
+    
+    // Mostrar notificación de éxito
+    showToast('success', 'Éxito', `Archivo Excel descargado: ${fileName}`);
+    
+    console.log(`✅ Exportación Excel completada para cliente ${client.name}`);
+    
+  } catch (error) {
+    console.error('❌ Error al exportar facturas a Excel:', error);
+    showToast('error', 'Error', 'Error al generar el archivo Excel: ' + error.message);
   }
 }
 
