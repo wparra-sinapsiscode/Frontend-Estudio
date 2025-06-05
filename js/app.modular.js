@@ -2701,17 +2701,19 @@ async function loadUpcomingDeadlines() {
     const API_BASE_URL = "http://localhost:5000/api";
     const today = new Date();
 
-    // OBTENER SOLO DATOS REALES DE LA BASE DE DATOS
+    // OBTENER DATOS REALES DE LA BASE DE DATOS CON RELACIONES
     const [contractedServicesResponse, invoicesResponse] = await Promise.all([
-      fetchWithAuth(`${API_BASE_URL}/contracted-services?status=activo`),
-      fetchWithAuth(`${API_BASE_URL}/invoices`), // Todas las facturas, filtraremos por monto pendiente
+      fetchWithAuth(`${API_BASE_URL}/contracted-services?status=activo&include=client,service`),
+      fetchWithAuth(`${API_BASE_URL}/invoices?include=client,service`), // Para verificar facturas pagadas
     ]);
 
     const upcomingPayments = [];
     console.log("🔍 DEBUG: Servicios contratados recibidos desde BD:", contractedServicesResponse.data?.length || 0);
     console.log("🔍 DEBUG: Facturas recibidas desde BD:", invoicesResponse.data?.length || 0);
 
-    // PROCESAR SERVICIOS CONTRATADOS SOLO CON DATOS REALES DE LA BD
+    // FILTRO INTELIGENTE: Solo servicios contratados SIN factura pagada
+    const allInvoices = invoicesResponse.data || [];
+    
     if (contractedServicesResponse.data && contractedServicesResponse.data.length > 0) {
       contractedServicesResponse.data.forEach((cs) => {
         // VALIDACIÓN ESTRICTA: Solo servicios con datos completos de la BD
@@ -2719,8 +2721,21 @@ async function loadUpcomingDeadlines() {
           console.log("🔍 DEBUG: Saltando servicio sin datos válidos:", cs.id);
           return;
         }
-        const nextPaymentDate = new Date(cs.nextPayment);
         
+        // FILTRO INTELIGENTE: Verificar si este servicio ya tiene factura pagada
+        const hasPayedInvoice = allInvoices.some(invoice => 
+          invoice.clientId === cs.clientId && 
+          invoice.serviceId === cs.serviceId && 
+          invoice.status === 'pagada' &&
+          !invoice.deletedAt // No eliminada
+        );
+        
+        if (hasPayedInvoice) {
+          console.log(`🔍 DEBUG: Saltando servicio ${cs.id} - ya tiene factura pagada`);
+          return;
+        }
+        
+        const nextPaymentDate = new Date(cs.nextPayment);
         const daysUntilPayment = Math.ceil((nextPaymentDate - today) / (1000 * 60 * 60 * 24));
 
         if (daysUntilPayment >= 0 && daysUntilPayment <= 30) {
@@ -2733,55 +2748,16 @@ async function loadUpcomingDeadlines() {
             serviceName: serviceName,
             date: nextPaymentDate,
             daysLeft: daysUntilPayment,
-            type: "payment",
+            type: "service",
             entityId: cs.id,
+            amount: parseFloat(cs.price) || 0,
           });
         }
       });
     }
 
-    // PROCESAR FACTURAS SOLO CON DATOS REALES DE LA BD  
-    if (invoicesResponse.data && invoicesResponse.data.length > 0) {
-      invoicesResponse.data.forEach((invoice) => {
-        // VALIDACIÓN ESTRICTA: Solo facturas con datos completos de la BD
-        if (!invoice.dueDate || !invoice.id || !invoice.amount) {
-          console.log("🔍 DEBUG: Saltando factura sin datos válidos:", invoice.id);
-          return;
-        }
-        
-        // Verificar que la factura tenga monto pendiente > 0 (DATOS REALES DE BD)
-        const totalAmount = parseFloat(invoice.amount) || 0;
-        const paidAmount = parseFloat(invoice.paidAmount) || 0;
-        const pendingAmount = totalAmount - paidAmount;
-        
-        // Solo mostrar facturas con monto pendiente > 0
-        if (pendingAmount <= 0) {
-          console.log("🔍 DEBUG: Saltando factura completamente pagada:", invoice.number);
-          return;
-        }
-        
-        const dueDate = new Date(invoice.dueDate);
-        const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
-
-        if (daysUntilDue >= 0 && daysUntilDue <= 30) {
-          const clientName = invoice.client?.name || invoice.clientName || `Cliente ID ${invoice.clientId}`;
-          const serviceName = invoice.service?.name || invoice.serviceName || `Servicio ID ${invoice.serviceId}`;
-          
-          upcomingPayments.push({
-            id: `inv-${invoice.id}`,
-            clientName: clientName,
-            serviceName: serviceName,
-            date: dueDate,
-            daysLeft: daysUntilDue,
-            type: "invoice",
-            entityId: invoice.id,
-            pendingAmount: pendingAmount,
-          });
-        }
-      });
-    }
-
-    upcomingPayments.sort((a, b) => a.daysLeft - b.daysLeft);
+    // ORDENAR POR MONTO (MAYOR A MENOR) PARA PRIORIZAR SERVICIOS MÁS IMPORTANTES
+    upcomingPayments.sort((a, b) => b.amount - a.amount);
     const paymentsToShow = upcomingPayments.slice(0, 5);
     
     console.log("🔍 DEBUG: Próximos vencimientos finales (SOLO DATOS DE BD):", paymentsToShow.length);
@@ -2790,7 +2766,7 @@ async function loadUpcomingDeadlines() {
     upcomingContainer.innerHTML = "";
 
     if (paymentsToShow.length === 0) {
-      upcomingContainer.innerHTML = '<p class="text-muted">No hay pagos próximos en los siguientes 30 días (datos de BD).</p>';
+      upcomingContainer.innerHTML = '<p class="text-muted">No hay servicios por cobrar en los próximos 30 días.</p>';
       return;
     }
 
@@ -2805,7 +2781,7 @@ async function loadUpcomingDeadlines() {
       item.innerHTML = `
         <div>
           <div class="upcoming-client">${payment.clientName}</div>
-          <div class="upcoming-service">${payment.serviceName} ${payment.type === "invoice" ? "(Proforma)" : ""}</div>
+          <div class="upcoming-service">${payment.serviceName} • S/. ${payment.amount.toFixed(2)}</div>
         </div>
         <div class="upcoming-date">
           <span>${payment.date.toLocaleDateString()}</span>
@@ -2813,16 +2789,10 @@ async function loadUpcomingDeadlines() {
         </div>`;
 
       item.addEventListener("click", () => {
-        if (payment.type === "payment") {
-          loadView("contracted-services");
-          if (typeof openContractedServiceModal === "function") {
-            setTimeout(() => openContractedServiceModal(payment.entityId), 300);
-          }
-        } else {
-          loadView("invoices");
-          if (typeof openInvoiceModal === "function") {
-            setTimeout(() => openInvoiceModal(payment.entityId), 300);
-          }
+        // Solo servicios contratados - ir a la vista de servicios contratados
+        loadView("contracted-services");
+        if (typeof openContractedServiceModal === "function") {
+          setTimeout(() => openContractedServiceModal(payment.entityId), 300);
         }
       });
       upcomingContainer.appendChild(item);
