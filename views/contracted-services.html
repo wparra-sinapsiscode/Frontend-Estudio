@@ -1,0 +1,67 @@
+<div class="section-header">
+    <h1>Servicios Contratados</h1>
+    <div class="action-buttons">
+        <button id="export-contracted-services-btn" class="btn btn-secondary"><i class="fas fa-file-excel"></i> Exportar a Excel</button>
+        <button id="add-contracted-service-btn" class="btn btn-primary"><i class="fas fa-plus"></i> Nuevo Servicio Contratado</button>
+    </div>
+</div>
+
+<div class="filters-container">
+    <div class="filter-group">
+        <label for="contracted-service-filter">Servicio:</label>
+        <select id="contracted-service-filter" class="filter-select">
+            <option value="">Todos</option>
+            <!-- Se cargará dinámicamente -->
+        </select>
+    </div>
+    <div class="filter-group">
+        <label for="contracted-payment-type-filter">Tipo de Pago:</label>
+        <select id="contracted-payment-type-filter" class="filter-select">
+            <option value="">Todos</option>
+            <option value="mensual">Mensual</option>
+            <option value="temporal">Temporal</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label for="contracted-status-filter">Estado:</label>
+        <select id="contracted-status-filter" class="filter-select">
+            <option value="">Todos</option>
+            <option value="activo">Activo</option>
+            <option value="pendiente">Pendiente de Pago</option>
+            <option value="alerta">En Alerta</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label for="contracted-client-filter">Cliente:</label>
+        <select id="contracted-client-filter" class="filter-select">
+            <option value="">Todos</option>
+            <!-- Se cargará dinámicamente -->
+        </select>
+    </div>
+</div>
+
+<div class="data-table-container">
+    <table class="data-table" id="contracted-services-table">
+        <thead>
+            <tr>
+                <th>Cliente</th>
+                <th>Servicio</th>
+                <th>Tipo de Pago</th>
+                <th>Fecha Inicio</th>
+                <th>Próximo Pago</th>
+                <th>Precio</th>
+                <th>Estado</th>
+                <th>Días para Vencimiento</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Los datos se cargarán dinámicamente -->
+        </tbody>
+    </table>
+</div>
+
+<!-- Paginación -->
+<div class="pagination" id="contracted-services-pagination">
+    <!-- Se cargará componente de paginación -->
+</div>

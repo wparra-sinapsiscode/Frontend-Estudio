@@ -1,0 +1,103 @@
+<div class="modal-header">
+  <h2 id="invoice-modal-title">Nueva Proforma</h2>
+  <span class="close" id="close-invoice-modal">&times;</span>
+</div>
+<form id="invoice-form" enctype="multipart/form-data">
+  <input type="hidden" id="invoice-id" name="invoice-id" />
+  <div class="form-row">
+    <div class="input-group">
+      <label for="invoice-number">Número de Documento</label>
+      <input type="text" id="invoice-number" name="invoice-number" required />
+    </div>
+    <div class="input-group">
+      <label for="invoice-document-type">Tipo de Documento</label>
+      <select id="invoice-document-type" name="invoice-document-type" required>
+        <option value="factura">Factura</option>
+        <option value="rhe">Recibo por Honorario Electrónico (RHE)</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="input-group">
+      <label for="invoice-client">Cliente</label>
+      <select id="invoice-client" name="invoice-client" required>
+        <option value="">Seleccionar Cliente</option>
+        <!-- Las opciones se cargarán dinámicamente -->
+      </select>
+    </div>
+    <div class="input-group">
+      <label for="invoice-service">Servicio</label>
+      <select id="invoice-service" name="invoice-service" required>
+        <option value="">Seleccionar Servicio</option>
+        <!-- Las opciones se cargarán dinámicamente -->
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="input-group">
+      <label for="invoice-amount">Monto (S/.)</label>
+      <input
+        type="number"
+        id="invoice-amount"
+        name="invoice-amount"
+        min="0"
+        step="0.01"
+        required
+      />
+    </div>
+    <div class="input-group">
+      <label for="invoice-status">Estado</label>
+      <select id="invoice-status" name="invoice-status" required>
+        <option value="pendiente">Pendiente</option>
+        <option value="pagada">Pagada</option>
+        <option value="vencida">Vencida</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="input-group">
+      <label for="invoice-issue-date">Fecha de Emisión</label>
+      <input
+        type="date"
+        id="invoice-issue-date"
+        name="invoice-issue-date"
+        required
+      />
+    </div>
+    <div class="input-group">
+      <label for="invoice-due-date">Fecha de Vencimiento</label>
+      <input
+        type="date"
+        id="invoice-due-date"
+        name="invoice-due-date"
+        required
+      />
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="input-group">
+      <label for="invoice-document">Adjuntar Documento</label>
+      <input
+        type="file"
+        id="invoice-document"
+        name="invoice-document"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+      />
+      <div id="document-preview" class="document-preview"></div>
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="button" class="btn btn-secondary" id="cancel-invoice-btn">
+      Cancelar
+    </button>
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <button
+      type="button"
+      class="btn btn-success"
+      id="send-whatsapp-btn"
+      disabled
+    >
+      <i class="fab fa-whatsapp"></i> Enviar por WhatsApp
+    </button>
+  </div>
+</form>

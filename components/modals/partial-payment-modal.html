@@ -1,0 +1,79 @@
+<div class="modal-header">
+  <h2 id="partial-payment-modal-title">
+    Pagos Parciales - Proforma <span id="payment-invoice-number"></span>
+  </h2>
+  <span class="close" id="close-partial-payment-modal">&times;</span>
+</div>
+<div class="partial-payment-summary">
+  <div class="payment-summary-item">
+    <div class="payment-label">Monto Total:</div>
+    <div class="payment-value" id="payment-total-amount">S/. 0.00</div>
+  </div>
+  <div class="payment-summary-item">
+    <div class="payment-label">Pagado:</div>
+    <div class="payment-value" id="payment-paid-amount">S/. 0.00</div>
+  </div>
+  <div class="payment-summary-item">
+    <div class="payment-label">Pendiente:</div>
+    <div class="payment-value" id="payment-pending-amount">S/. 0.00</div>
+  </div>
+</div>
+<div class="partial-payments-list" id="partial-payments-list">
+  <!-- Lista de pagos se cargará dinámicamente -->
+</div>
+<form id="partial-payment-form">
+  <input type="hidden" id="payment-invoice-id" name="payment-invoice-id" />
+  <h3>Registrar Nuevo Pago</h3>
+  <div class="form-row">
+    <div class="input-group">
+      <label for="payment-amount">Monto del Pago (S/.)</label>
+      <input
+        type="number"
+        id="payment-amount"
+        name="payment-amount"
+        min="0"
+        step="0.01"
+        required
+      />
+    </div>
+    <div class="input-group">
+      <label for="payment-method">Método de Pago</label>
+      <select id="payment-method" name="payment-method" required>
+        <option value="efectivo">Efectivo</option>
+        <option value="yape">Yape</option>
+        <option value="plin">Plin</option>
+        <option value="transferencia">Transferencia Bancaria</option>
+        <option value="tarjeta">Tarjeta de Crédito/Débito</option>
+        <option value="otro">Otro</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="input-group">
+      <label for="payment-date">Fecha de Pago</label>
+      <input type="date" id="payment-date" name="payment-date" required />
+    </div>
+    <div class="input-group">
+      <label for="payment-voucher">Adjuntar Voucher</label>
+      <input
+        type="file"
+        id="payment-voucher"
+        name="payment-voucher"
+        accept=".pdf,.jpg,.jpeg,.png"
+      />
+      <div id="voucher-preview" class="document-preview"></div>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="input-group">
+      <label for="payment-notes">Notas</label>
+      <textarea id="payment-notes" name="payment-notes" rows="2"></textarea>
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="button" class="btn btn-secondary" id="cancel-payment-btn">
+      Cancelar
+    </button>
+    <button type="submit" class="btn btn-primary">Registrar Pago</button>
+  </div>
+</form>

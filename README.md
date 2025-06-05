@@ -1,1 +1,0 @@
-# Estudio - v1

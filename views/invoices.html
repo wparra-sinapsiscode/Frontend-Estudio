@@ -1,0 +1,63 @@
+<div class="section-header">
+    <h1>Proformas / Notas de Venta</h1>
+    <div class="action-buttons">
+        <button id="export-invoices-btn" class="btn btn-secondary"><i class="fas fa-file-excel"></i> Exportar a Excel</button>
+        <button id="add-invoice-btn" class="btn btn-primary"><i class="fas fa-plus"></i> Nueva Proforma</button>
+    </div>
+</div>
+
+<div class="filters-container">
+    <div class="filter-group">
+        <label for="invoice-client-filter">Cliente:</label>
+        <select id="invoice-client-filter" class="filter-select">
+            <option value="">Todos</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label for="invoice-service-filter">Servicio:</label>
+        <select id="invoice-service-filter" class="filter-select">
+            <option value="">Todos</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label for="invoice-status-filter">Estado:</label>
+        <select id="invoice-status-filter" class="filter-select">
+            <option value="">Todos</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="pagada">Pagada</option>
+            <option value="vencida">Vencida</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label for="invoice-date-filter">Fecha:</label>
+        <input type="month" id="invoice-date-filter" class="filter-date">
+    </div>
+</div>
+
+<div class="data-table-container">
+    <table class="data-table" id="invoices-table">
+        <thead>
+            <tr>
+                <th>N° Documento</th>
+                <th>Cliente</th>
+                <th>Servicio</th>
+                <th>Fecha Emisión</th>
+                <th>Fecha Vencimiento</th>
+                <th>Monto</th>
+                <th>Pagado</th>
+                <th>Pendiente</th>
+                <th>Documento</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Los datos se cargarán dinámicamente -->
+        </tbody>
+    </table>
+</div>
+
+<!-- Paginación -->
+<div class="pagination" id="invoices-pagination">
+    <!-- Se cargará componente de paginación -->
+</div>

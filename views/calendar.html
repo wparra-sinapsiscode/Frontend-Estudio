@@ -1,0 +1,46 @@
+<div class="section-header">
+    <h1>Calendario de Pagos</h1>
+    <div class="action-buttons">
+        <button id="export-calendar-btn" class="btn btn-secondary"><i class="fas fa-file-excel"></i> Exportar a Excel</button>
+    </div>
+</div>
+
+<div class="calendar-controls">
+    <button id="prev-month" class="btn"><i class="fas fa-chevron-left"></i></button>
+    <h2 id="current-month-year">Mayo 2025</h2>
+    <button id="next-month" class="btn"><i class="fas fa-chevron-right"></i></button>
+</div>
+
+<div class="calendar" id="payments-calendar">
+    <div class="calendar-header">
+        <div>Lun</div>
+        <div>Mar</div>
+        <div>Mié</div>
+        <div>Jue</div>
+        <div>Vie</div>
+        <div>Sáb</div>
+        <div>Dom</div>
+    </div>
+    <div class="calendar-days" id="calendar-days">
+        <!-- Los días del calendario se cargarán dinámicamente -->
+    </div>
+</div>
+
+<div class="calendar-legend">
+    <div class="legend-item">
+        <div class="legend-color" style="background-color: var(--primary-color);"></div>
+        <span>Pago programado</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background-color: var(--success-color);"></div>
+        <span>Pago realizado</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background-color: var(--warning-color);"></div>
+        <span>Próximo a vencer</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background-color: var(--danger-color);"></div>
+        <span>Pago vencido</span>
+    </div>
+</div>

@@ -1,0 +1,64 @@
+<h1>Dashboard</h1>
+<div class="dashboard-summary">
+    <div class="summary-card">
+        <div class="summary-icon clients-icon">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="summary-info">
+            <h3>Total Clientes</h3>
+            <p id="total-clients">0</p>
+        </div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-icon services-icon">
+            <i class="fas fa-briefcase"></i>
+        </div>
+        <div class="summary-info">
+            <h3>Servicios Activos</h3>
+            <p id="active-services">0</p>
+        </div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-icon invoices-icon">
+            <i class="fas fa-file-invoice-dollar"></i>
+        </div>
+        <div class="summary-info">
+            <h3>Proformas Pendientes</h3>
+            <p id="pending-invoices">0</p>
+        </div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-icon revenue-icon">
+            <i class="fas fa-coins"></i>
+        </div>
+        <div class="summary-info">
+            <h3>Ingresos del Mes</h3>
+            <p id="monthly-revenue">S/. 0.00</p>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-charts">
+    <div class="chart-container">
+        <h3>Ingresos por Tipo de Servicio</h3>
+        <div class="chart-wrapper">
+            <div class="y-axis">
+                <span>2.5k</span>
+                <span>2.0k</span>
+                <span>1.5k</span>
+                <span>1.0k</span>
+                <span>0.5k</span>
+                <span>0</span>
+            </div>
+            <div class="chart" id="services-chart">
+                <!-- Gráfico se cargará dinámicamente -->
+            </div>
+        </div>
+    </div>
+    <div class="chart-container">
+        <h3>Próximos Vencimientos</h3>
+        <div class="upcoming-list" id="upcoming-deadlines">
+            <!-- Se cargará dinámicamente -->
+        </div>
+    </div>
+</div>

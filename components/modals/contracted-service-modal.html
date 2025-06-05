@@ -1,0 +1,92 @@
+<div class="modal-header">
+  <h2 id="contracted-service-modal-title">Nuevo Servicio Contratado</h2>
+  <span class="close" id="close-contracted-service-modal">&times;</span>
+</div>
+<form id="contracted-service-form">
+  <input
+    type="hidden"
+    id="contracted-service-id"
+    name="contracted-service-id"
+  />
+  <div class="form-row">
+    <div class="input-group">
+      <label for="contracted-client">Cliente</label>
+      <select id="contracted-client" name="contracted-client" required>
+        <option value="">Seleccionar Cliente</option>
+        <!-- Se cargará dinámicamente -->
+      </select>
+    </div>
+    <div class="input-group">
+      <label for="contracted-service">Servicio</label>
+      <select id="contracted-service" name="contracted-service" required>
+        <option value="">Seleccionar Servicio</option>
+        <!-- Se cargará dinámicamente -->
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="input-group">
+      <label for="contracted-start-date">Fecha de Inicio</label>
+      <input
+        type="date"
+        id="contracted-start-date"
+        name="contracted-start-date"
+        required
+      />
+    </div>
+    <div class="input-group">
+      <label for="contracted-next-payment">Próximo Pago</label>
+      <input
+        type="date"
+        id="contracted-next-payment"
+        name="contracted-next-payment"
+        required
+      />
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="input-group">
+      <label for="contracted-price">Precio (S/.)</label>
+      <input
+        type="number"
+        id="contracted-price"
+        name="contracted-price"
+        min="0"
+        step="0.01"
+        required
+      />
+    </div>
+    <div class="input-group">
+      <label for="contracted-status">Estado</label>
+      <select id="contracted-status" name="contracted-status">
+        <option value="activo">Activo</option>
+        <option value="pendiente">Pendiente</option>
+        <option value="alerta">Alerta</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="input-group">
+      <label for="contracted-invoice-days">Días para emisión de factura</label>
+      <input
+        type="number"
+        id="contracted-invoice-days"
+        name="contracted-invoice-days"
+        min="0"
+        value="0"
+        required
+      />
+      <small>Días después de terminado el trabajo para emitir la factura</small>
+    </div>
+  </div>
+  <div class="form-actions">
+    <button
+      type="button"
+      class="btn btn-secondary"
+      id="cancel-contracted-service-btn"
+    >
+      Cancelar
+    </button>
+    <button type="submit" class="btn btn-primary">Guardar</button>
+  </div>
+</form>

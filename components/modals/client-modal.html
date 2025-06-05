@@ -1,0 +1,46 @@
+<div class="modal-header">
+  <h2 id="client-modal-title">Nuevo Cliente</h2>
+  <span class="close" id="close-client-modal">&times;</span>
+</div>
+<form id="client-form">
+  <input type="hidden" id="client-id" name="client-id" />
+  <div class="form-row">
+    <div class="input-group">
+      <label for="client-name">Nombre o Razón Social</label>
+      <input type="text" id="client-name" name="client-name" required />
+    </div>
+    <div class="input-group">
+      <label for="client-ruc">RUC</label>
+      <input type="text" id="client-ruc" name="client-ruc" required />
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="input-group">
+      <label for="client-phone">Teléfono</label>
+      <input type="text" id="client-phone" name="client-phone" required />
+    </div>
+    <div class="input-group">
+      <label for="client-email">Email</label>
+      <input type="email" id="client-email" name="client-email" required />
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="input-group">
+      <label for="client-address">Dirección</label>
+      <input type="text" id="client-address" name="client-address" />
+    </div>
+    <div class="input-group">
+      <label for="client-status">Estado</label>
+      <select id="client-status" name="client-status">
+        <option value="activo">Activo</option>
+        <option value="inactivo">Inactivo</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-actions">
+    <button type="button" class="btn btn-secondary" id="cancel-client-btn">
+      Cancelar
+    </button>
+    <button type="submit" class="btn btn-primary">Guardar</button>
+  </div>
+</form>

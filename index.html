@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión - Estudio Contable (Versión Modular)</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Pantalla de Login -->
+    <div id="login-container" class="container">
+        <!-- El login se cargará desde views/login.html -->
+    </div>
+
+    <!-- Panel Principal (Dashboard) -->
+    <div id="dashboard-container" class="container hidden">
+        <nav class="sidebar" id="sidebar-container">
+            <!-- Sidebar se cargará desde components/layout/sidebar.html -->
+        </nav>
+
+        <main class="content">
+            <header class="content-header" id="header-container">
+                <!-- Header se cargará desde components/layout/header.html -->
+            </header>
+
+            <!-- Notificaciones Dropdown -->
+            <div id="notifications-dropdown" class="dropdown-menu hidden">
+                <!-- Notificaciones se cargarán desde components/shared/notification-dropdown.html -->
+            </div>
+
+            <!-- Dashboard Section -->
+            <section id="dashboard-section" class="section-content">
+                <!-- La vista de dashboard se cargará desde views/dashboard.html -->
+            </section>
+
+            <!-- Clients Section -->
+            <section id="clients-section" class="section-content hidden">
+                <!-- La vista de clientes se cargará desde views/clients.html -->
+            </section>
+
+            <!-- Contracted Services Section -->
+            <section id="contracted-services-section" class="section-content hidden">
+                <!-- La vista de servicios contratados se cargará desde views/contracted-services.html -->
+            </section>
+
+            <!-- Services Section -->
+            <section id="services-section" class="section-content hidden">
+                <!-- La vista de servicios se cargará desde views/services.html -->
+            </section>
+
+            <!-- Invoices Section (Proformas) -->
+            <section id="invoices-section" class="section-content hidden">
+                <!-- La vista de proformas se cargará desde views/invoices.html -->
+            </section>
+
+            <!-- Calendar Section -->
+            <section id="calendar-section" class="section-content hidden">
+                <!-- La vista de calendario se cargará desde views/calendar.html -->
+            </section>
+
+            <!-- Settings Section -->
+            <section id="settings-section" class="section-content hidden">
+                <!-- La vista de configuración se cargará desde views/settings.html -->
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal para Agregar/Editar Cliente -->
+    <div id="client-modal" class="modal">
+        <div class="modal-content" id="client-modal-container">
+            <!-- El modal de cliente se cargará desde components/modals/client-modal.html -->
+        </div>
+    </div>
+
+    <!-- Modal para Agregar/Editar Servicio Contratado -->
+    <div id="contracted-service-modal" class="modal">
+        <div class="modal-content" id="contracted-service-modal-container">
+            <!-- El modal de servicio contratado se cargará desde components/modals/contracted-service-modal.html -->
+        </div>
+    </div>
+
+    <!-- Modal para Agregar/Editar Servicio -->
+    <div id="service-modal" class="modal">
+        <div class="modal-content" id="service-modal-container">
+            <!-- El modal de servicio se cargará desde components/modals/service-modal.html -->
+        </div>
+    </div>
+
+    <!-- Modal para Agregar/Editar Proforma -->
+    <div id="invoice-modal" class="modal">
+        <div class="modal-content" id="invoice-modal-container">
+            <!-- El modal de proforma se cargará desde components/modals/invoice-modal.html -->
+        </div>
+    </div>
+
+    <!-- Modal para Pagos Parciales -->
+    <div id="partial-payment-modal" class="modal">
+        <div class="modal-content" id="partial-payment-modal-container">
+            <!-- El modal de pagos parciales se cargará desde components/modals/partial-payment-modal.html -->
+        </div>
+    </div>
+
+    <!-- Modal de Confirmación -->
+    <div id="confirm-modal" class="modal">
+        <div class="modal-content confirm-content" id="confirm-modal-container">
+            <!-- El modal de confirmación se cargará desde components/modals/confirm-modal.html -->
+        </div>
+    </div>
+
+    <!-- Modal para Detalles de Evento de Calendario -->
+    <div id="event-modal" class="modal">
+        <div class="modal-content event-content" id="event-modal-container">
+            <!-- El modal de evento se cargará desde components/modals/event-modal.html -->
+        </div>
+    </div>
+
+    <!-- Toast para notificaciones -->
+    <div id="toast" class="toast hidden">
+        <!-- El toast se cargará desde components/shared/toast.html -->
+    </div>
+
+    <!-- Scripts -->
+    <!-- Librería XLSX para exportación a Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="js/ui-loader.js"></script>
+    <script src="js/app.modular.js"></script>
+    
+    <!-- Eliminar las siguientes líneas ya que la inicialización se maneja en app.modular.js -->
+    <!-- 
+    <script>
+        // Inicializar la carga de componentes
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cargar el componente de login
+            loadComponent('views/login.html', 'login-container');
+            
+            // Inicializar la aplicación después de cargar todos los componentes
+            initializeUI().then(() => {
+                // Iniciar la aplicación original
+                initApp();
+            });
+        });
+    </script>
+    -->
+</body>
+</html>

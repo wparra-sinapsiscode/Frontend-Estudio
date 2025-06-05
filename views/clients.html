@@ -1,0 +1,51 @@
+<div class="section-header">
+    <h1>Clientes</h1>
+    <div class="action-buttons">
+        <button id="export-clients-btn" class="btn btn-secondary"><i class="fas fa-file-excel"></i> Exportar a Excel</button>
+        <button id="add-client-btn" class="btn btn-primary"><i class="fas fa-plus"></i> Nuevo Cliente</button>
+    </div>
+</div>
+
+<div class="filters-container">
+    <div class="filter-group">
+        <label for="client-status-filter">Estado:</label>
+        <select id="client-status-filter" class="filter-select">
+            <option value="">Todos</option>
+            <option value="activo">Activo</option>
+            <option value="inactivo">Inactivo</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label for="client-date-filter">Fecha de Ingreso:</label>
+        <input type="month" id="client-date-filter" class="filter-date">
+    </div>
+    <div class="filter-group search-field">
+        <label for="client-search">Buscar:</label>
+        <input type="text" id="client-search" placeholder="Nombre, RUC, Teléfono...">
+    </div>
+</div>
+
+<div class="data-table-container">
+    <table class="data-table" id="clients-table">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>RUC</th>
+                <th>Teléfono</th>
+                <th>Email</th>
+                <th>Dirección</th>
+                <th>Estado</th>
+                <th>Fecha de Ingreso</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Los datos se cargarán dinámicamente -->
+        </tbody>
+    </table>
+</div>
+
+<!-- Paginación -->
+<div class="pagination" id="clients-pagination">
+    <!-- Se cargará componente de paginación -->
+</div>
