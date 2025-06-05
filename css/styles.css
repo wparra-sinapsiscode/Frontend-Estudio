@@ -2510,6 +2510,11 @@ input[type="file"] {
   background-color: rgba(33, 150, 243, 0.2);
 }
 
+.email-btn.contacted {
+  background-color: var(--info-color);
+  color: white;
+}
+
 .visita-btn {
   background-color: rgba(156, 39, 176, 0.1);
   color: #9c27b0;
@@ -2517,6 +2522,38 @@ input[type="file"] {
 
 .visita-btn:hover {
   background-color: rgba(156, 39, 176, 0.2);
+}
+
+.visita-btn.contacted {
+  background-color: #9c27b0;
+  color: white;
+}
+
+/* Estado vacío de vencidos */
+.empty-vencidos {
+  text-align: center;
+  padding: var(--spacing-xl) var(--spacing-lg);
+  color: var(--text-light-color);
+}
+
+.empty-vencidos .empty-icon {
+  font-size: 48px;
+  color: var(--success-color);
+  margin-bottom: var(--spacing-md);
+  opacity: 0.8;
+}
+
+.empty-vencidos h4 {
+  color: var(--text-color);
+  font-weight: 600;
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-size-lg);
+}
+
+.empty-vencidos p {
+  color: var(--text-light-color);
+  font-size: var(--font-size-base);
+  margin: 0;
 }
 
 /* Responsive para vencidos */

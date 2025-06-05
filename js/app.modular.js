@@ -2433,6 +2433,7 @@ loadDashboardData = async function() {
     // Cargar otros elementos del dashboard
     await loadRevenueChart();
     await loadUpcomingDeadlines();
+    await loadVencidosData();
   } catch (error) {
     console.error("Error cargando datos del dashboard:", error);
     showToast(
@@ -2828,6 +2829,199 @@ async function loadUpcomingDeadlines() {
       upcomingContainer.innerHTML = '<div class="alert alert-danger m-3">Error al cargar próximos vencimientos.</div>';
     }
   }
+}
+
+// Función para cargar facturas y servicios vencidos (morosos)
+async function loadVencidosData() {
+  console.log("🔍 DEBUG: Iniciando carga de vencidos (morosos)...");
+  const vencidosContainer = document.getElementById("vencidos-list");
+  const vencidosCount = document.getElementById("vencidos-count");
+  
+  if (!vencidosContainer || !vencidosCount) {
+    console.warn("⚠️ No se encontró el contenedor de vencidos");
+    return;
+  }
+
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Obtener facturas y servicios contratados
+    const [invoicesResponse, contractedServicesResponse] = await Promise.all([
+      fetchWithAuth(`${API_BASE_URL}/invoices?include=client,service`),
+      fetchWithAuth(`${API_BASE_URL}/contracted-services?status=activo&include=client,service`)
+    ]);
+
+    const vencidosItems = [];
+
+    // Procesar FACTURAS VENCIDAS
+    if (invoicesResponse.data && invoicesResponse.data.length > 0) {
+      invoicesResponse.data.forEach((invoice) => {
+        if (!invoice.dueDate || !invoice.id || invoice.deletedAt) return;
+
+        const dueDate = new Date(invoice.dueDate);
+        const daysPastDue = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+
+        // Solo facturas vencidas (fecha pasada)
+        if (daysPastDue > 0) {
+          const totalAmount = parseFloat(invoice.amount) || 0;
+          const paidAmount = parseFloat(invoice.paidAmount) || 0;
+          const pendingAmount = totalAmount - paidAmount;
+
+          // Solo si tiene monto pendiente
+          if (pendingAmount > 0) {
+            const clientName = invoice.client?.name || `Cliente ID ${invoice.clientId}`;
+            const serviceName = invoice.service?.name || `Servicio ID ${invoice.serviceId}`;
+
+            vencidosItems.push({
+              id: `inv-${invoice.id}`,
+              clientName: clientName,
+              serviceName: serviceName,
+              type: 'invoice',
+              invoiceNumber: invoice.number,
+              daysOverdue: daysPastDue,
+              pendingAmount: pendingAmount,
+              entityId: invoice.id
+            });
+          }
+        }
+      });
+    }
+
+    // Procesar SERVICIOS CONTRATADOS VENCIDOS
+    if (contractedServicesResponse.data && contractedServicesResponse.data.length > 0) {
+      // Primero, obtener todas las facturas para verificar pagos
+      const allInvoices = invoicesResponse.data || [];
+      
+      contractedServicesResponse.data.forEach((cs) => {
+        if (!cs.nextPayment || !cs.id || cs.status !== 'activo') return;
+
+        const nextPaymentDate = new Date(cs.nextPayment);
+        const daysPastDue = Math.floor((today - nextPaymentDate) / (1000 * 60 * 60 * 24));
+
+        // Solo servicios vencidos
+        if (daysPastDue > 0) {
+          // Verificar si ya tiene factura pagada
+          const hasPayedInvoice = allInvoices.some(invoice => 
+            invoice.clientId === cs.clientId && 
+            invoice.serviceId === cs.serviceId && 
+            invoice.status === 'pagada' &&
+            !invoice.deletedAt
+          );
+
+          if (!hasPayedInvoice) {
+            const clientName = cs.client?.name || `Cliente ID ${cs.clientId}`;
+            const serviceName = cs.service?.name || `Servicio ID ${cs.serviceId}`;
+
+            vencidosItems.push({
+              id: `cs-${cs.id}`,
+              clientName: clientName,
+              serviceName: serviceName,
+              type: 'service',
+              daysOverdue: daysPastDue,
+              pendingAmount: parseFloat(cs.price) || 0,
+              entityId: cs.id
+            });
+          }
+        }
+      });
+    }
+
+    // Ordenar por días vencidos (más urgente primero)
+    vencidosItems.sort((a, b) => b.daysOverdue - a.daysOverdue);
+
+    // Actualizar contador
+    vencidosCount.textContent = vencidosItems.length;
+
+    // Renderizar lista
+    vencidosContainer.innerHTML = "";
+
+    if (vencidosItems.length === 0) {
+      vencidosContainer.innerHTML = `
+        <div class="empty-vencidos">
+          <div class="empty-icon">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <h4>¡Excelente gestión!</h4>
+          <p>No tienes facturas o servicios vencidos en este momento.</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Mostrar hasta 10 items más urgentes
+    const itemsToShow = vencidosItems.slice(0, 10);
+
+    itemsToShow.forEach((item) => {
+      const vencidoDiv = document.createElement("div");
+      vencidoDiv.className = "vencido-item";
+      
+      // Determinar clase de urgencia
+      if (item.daysOverdue > 15) {
+        vencidoDiv.classList.add("critico");
+      } else if (item.daysOverdue > 7) {
+        vencidoDiv.classList.add("urgente");
+      } else {
+        vencidoDiv.classList.add("importante");
+      }
+
+      vencidoDiv.innerHTML = `
+        <div class="vencido-info">
+          <div class="vencido-client">${item.clientName}</div>
+          <div class="vencido-detail">
+            ${item.serviceName} ${item.invoiceNumber ? `- ${item.invoiceNumber}` : ''} • S/. ${item.pendingAmount.toFixed(2)}
+          </div>
+          <div class="vencido-status">Vencido hace ${item.daysOverdue} ${item.daysOverdue === 1 ? 'día' : 'días'}</div>
+        </div>
+        <div class="vencido-actions">
+          <button class="action-btn llamar-btn" onclick="markContactAction('${item.id}', 'llamar')" title="Llamar">
+            <i class="fas fa-phone"></i>
+          </button>
+          <button class="action-btn email-btn" onclick="markContactAction('${item.id}', 'email')" title="Enviar Email">
+            <i class="fas fa-envelope"></i>
+          </button>
+          <button class="action-btn visita-btn" onclick="markContactAction('${item.id}', 'visita')" title="Marcar como Visitado">
+            <i class="fas fa-user-check"></i>
+          </button>
+        </div>
+      `;
+
+      vencidosContainer.appendChild(vencidoDiv);
+    });
+
+    console.log(`✅ Cargados ${itemsToShow.length} items vencidos de un total de ${vencidosItems.length}`);
+
+  } catch (error) {
+    console.error("Error cargando vencidos:", error);
+    vencidosContainer.innerHTML = '<p class="text-error">Error al cargar vencidos.</p>';
+    vencidosCount.textContent = "0";
+  }
+}
+
+// Función para marcar acciones de contacto en vencidos
+function markContactAction(itemId, actionType) {
+  const button = event.target.closest('.action-btn');
+  
+  // Obtener el nombre de la acción en español
+  const actionNames = {
+    'llamar': 'Llamada registrada',
+    'email': 'Email enviado',
+    'visita': 'Visita registrada'
+  };
+  
+  // Toggle la clase 'contacted' para mostrar visualmente que se realizó la acción
+  button.classList.toggle('contacted');
+  
+  // Mostrar notificación de éxito
+  showToast(
+    'success', 
+    actionNames[actionType] || 'Acción registrada',
+    `Se ha registrado la acción para este cliente`
+  );
+  
+  // Aquí podrías agregar lógica adicional para guardar en base de datos
+  // cuando implementes el backend para tracking de acciones
+  console.log(`Acción ${actionType} registrada para ${itemId}`);
 }
 
 // Funciones de Clientes
