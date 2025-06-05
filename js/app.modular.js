@@ -2999,29 +2999,83 @@ async function loadVencidosData() {
 }
 
 // Función para marcar acciones de contacto en vencidos
-function markContactAction(itemId, actionType) {
+async function markContactAction(itemId, actionType) {
   const button = event.target.closest('.action-btn');
+  
+  // Extraer tipo de entidad e ID del itemId (formato: "inv-123" o "cs-456")
+  const [entityPrefix, entityId] = itemId.split('-');
+  const entityType = entityPrefix === 'inv' ? 'invoice' : 'contracted_service';
+  
+  // Obtener información del item desde el DOM
+  const vencidoItem = button.closest('.vencido-item');
+  const clientName = vencidoItem.querySelector('.vencido-client').textContent;
+  
+  // Mapeo de tipos de acción
+  const actionTypeMap = {
+    'llamar': 'llamada',
+    'email': 'email',
+    'visita': 'visita'
+  };
   
   // Obtener el nombre de la acción en español
   const actionNames = {
-    'llamar': 'Llamada registrada',
-    'email': 'Email enviado',
-    'visita': 'Visita registrada'
+    'llamar': 'Llamada telefónica',
+    'email': 'Correo electrónico',
+    'visita': 'Visita presencial'
   };
   
-  // Toggle la clase 'contacted' para mostrar visualmente que se realizó la acción
-  button.classList.toggle('contacted');
-  
-  // Mostrar notificación de éxito
-  showToast(
-    'success', 
-    actionNames[actionType] || 'Acción registrada',
-    `Se ha registrado la acción para este cliente`
-  );
-  
-  // Aquí podrías agregar lógica adicional para guardar en base de datos
-  // cuando implementes el backend para tracking de acciones
-  console.log(`Acción ${actionType} registrada para ${itemId}`);
+  try {
+    // Primero, obtener el clientId de la entidad
+    let clientId;
+    if (entityType === 'invoice') {
+      const invoiceResponse = await fetchWithAuth(`${API_BASE_URL}/invoices/${entityId}`);
+      clientId = invoiceResponse.data.clientId;
+    } else {
+      const csResponse = await fetchWithAuth(`${API_BASE_URL}/contracted-services/${entityId}`);
+      clientId = csResponse.data.clientId;
+    }
+    
+    // Preparar datos para el seguimiento
+    const trackingData = {
+      entityType: entityType,
+      entityId: parseInt(entityId),
+      clientId: clientId,
+      actionType: actionTypeMap[actionType],
+      actionDescription: `${actionNames[actionType]} realizada para seguimiento de cobro`,
+      contactMade: false, // Por defecto, se puede cambiar en un modal más detallado
+      status: 'en_progreso'
+    };
+    
+    // Guardar en la base de datos
+    const response = await fetchWithAuth(`${API_BASE_URL}/collection-tracking`, {
+      method: 'POST',
+      body: JSON.stringify(trackingData)
+    });
+    
+    if (response.success) {
+      // Marcar visualmente como contactado
+      button.classList.add('contacted');
+      
+      // Mostrar notificación de éxito
+      showToast(
+        'success', 
+        'Acción registrada',
+        `${actionNames[actionType]} registrada para ${clientName}`
+      );
+      
+      // Opcional: Abrir modal para agregar más detalles
+      if (confirm('¿Deseas agregar detalles sobre el resultado del contacto?')) {
+        openTrackingDetailsModal(response.data.id, entityType, entityId, clientName);
+      }
+    }
+  } catch (error) {
+    console.error('Error registrando acción:', error);
+    showToast(
+      'error',
+      'Error',
+      'No se pudo registrar la acción. Intente nuevamente.'
+    );
+  }
 }
 
 // Funciones de Clientes
