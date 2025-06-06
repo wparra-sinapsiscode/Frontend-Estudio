@@ -5769,7 +5769,7 @@ async function handleInvoiceData(invoice, eventTitleEl, eventDetailsEl) {
               <button class="btn btn-primary" style="flex: 1; min-width: 140px; max-width: 200px;" onclick="openInvoiceModal(${
                 invoice.id
               })">
-                <i class="fas fa-edit"></i> Editar Proforma
+                <i class="fas fa-edit"></i> Editar pago
               </button>
               <button class="btn btn-warning" style="flex: 1; min-width: 140px; max-width: 200px;" onclick="openPartialPaymentModal(${
                 invoice.id
