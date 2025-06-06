@@ -1072,17 +1072,9 @@ openPartialPaymentModal = async function(invoiceId) {
       const submitBtn = paymentForm.querySelector('button[type="submit"]');
       console.log('🔍 DEBUG: Submit button encontrado:', submitBtn);
       
-      // Test adicional - agregar click listener al botón como backup
+      // Verificar que el submit button existe (removido event listener duplicado)
       if (submitBtn) {
-        submitBtn.addEventListener('click', function(e) {
-          console.log('🔍 DEBUG: Click detectado en submit button');
-          if (paymentForm.checkValidity()) {
-            console.log('🔍 DEBUG: Formulario válido, ejecutando handlePartialPaymentSubmit...');
-            handlePartialPaymentSubmit(e);
-          } else {
-            console.log('❌ DEBUG: Formulario inválido');
-          }
-        });
+        console.log('✅ DEBUG: Submit button encontrado y listo para submit event');
       }
     } else {
       console.error('❌ DEBUG: No se encontró el formulario partial-payment-form');
