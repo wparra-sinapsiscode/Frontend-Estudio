@@ -272,7 +272,9 @@ renderInvoicesTable = function() {
       invoice.id
     }"><i class="fab fa-whatsapp"></i></div><div class="action-btn tracking-btn" data-action="tracking" data-invoice-id="${
       invoice.id
-    }" title="Seguimiento de cobro" style="display: none;"><i class="fas fa-history"></i></div></div></td>`;
+    }" title="Seguimiento de cobro" style="display: none;"><i class="fas fa-history"></i></div><div class="action-btn export-btn" data-action="export" data-invoice-id="${
+      invoice.id
+    }" title="Exportar a Excel"><i class="fas fa-file-excel"></i></div></div></td>`;
     tableBody.appendChild(row);
   });
 };
@@ -2227,6 +2229,14 @@ function setupInvoiceActionListeners() {
           sendInvoiceByWhatsApp(invoiceId);
         } else {
           console.error('Función sendInvoiceByWhatsApp no encontrada');
+        }
+        break;
+      case 'export':
+        console.log('Ejecutando exportInvoiceToExcel...');
+        if (typeof exportInvoiceToExcel === 'function') {
+          exportInvoiceToExcel(invoiceId);
+        } else {
+          console.error('Función exportInvoiceToExcel no encontrada');
         }
         break;
       default:
@@ -5743,25 +5753,25 @@ async function handleInvoiceData(invoice, eventTitleEl, eventDetailsEl) {
           <p><strong>M.Pendiente:</strong> S/. ${pendingAmount.toFixed(2)}</p>
           ${documentInfo}
           ${paymentsInfo}
-          <div class="action-buttons" style="margin-top:20px;">
-              <button class="btn btn-success" onclick="sendInvoiceByWhatsApp(${
+          <div class="action-buttons" style="margin-top:20px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
+              <button class="btn btn-success" style="flex: 1; min-width: 140px; max-width: 200px;" onclick="sendInvoiceByWhatsApp(${
                 invoice.id
               })">
                 <i class="fab fa-whatsapp"></i> Enviar por WhatsApp
               </button>
               ${
                 invoice.document
-                  ? `<button class="btn btn-info" onclick="downloadInvoiceDocument(${invoice.id})">
+                  ? `<button class="btn btn-info" style="flex: 1; min-width: 140px; max-width: 200px;" onclick="downloadInvoiceDocument(${invoice.id})">
                       <i class="fas fa-download"></i> Descargar Documento
                     </button>`
                   : ""
               }
-              <button class="btn btn-primary" onclick="openInvoiceModal(${
+              <button class="btn btn-primary" style="flex: 1; min-width: 140px; max-width: 200px;" onclick="openInvoiceModal(${
                 invoice.id
               })">
                 <i class="fas fa-edit"></i> Editar Proforma
               </button>
-              <button class="btn btn-warning" onclick="openPartialPaymentModal(${
+              <button class="btn btn-warning" style="flex: 1; min-width: 140px; max-width: 200px;" onclick="openPartialPaymentModal(${
                 invoice.id
               })">
                 <i class="fas fa-money-bill-wave"></i> Registrar Pago
@@ -6174,6 +6184,92 @@ exportInvoicesToExcel = async function() {
   } catch (error) {
     console.error("Error exportando proformas:", error);
     showToast("error", "Error", "No se pudo exportar las proformas");
+  }
+}
+
+// Función para exportar una sola factura a Excel
+exportInvoiceToExcel = async function(invoiceId) {
+  try {
+    console.log(`Exportando factura ${invoiceId} a Excel...`);
+    showToast("info", "Exportando...", "Generando archivo Excel");
+
+    // Obtener los datos de la factura específica
+    const responseData = await fetchWithAuth(`${API_BASE_URL}/invoices/${invoiceId}?include=client,service`);
+    const invoice = responseData.data;
+    
+    
+    if (!invoice) {
+      showToast("warning", "Advertencia", "No se encontró la factura");
+      return;
+    }
+
+    // Crear los datos para Excel
+    const headers = [
+      "N° Documento", "Cliente", "RUC/DNI", "Teléfono", "Email", "Dirección",
+      "Servicio", "Tipo Documento", "Fecha Emisión", "Fecha Vencimiento", 
+      "Monto", "Pagado", "Pendiente", "Documento", "Estado"
+    ];
+
+    const invoiceData = [
+      invoice.number || "Sin número",
+      invoice.client?.name || "Cliente no especificado",
+      invoice.client?.ruc || "Sin RUC/DNI",
+      invoice.client?.phone || "Sin teléfono",
+      invoice.client?.email || "Sin email",
+      invoice.client?.address || "Sin dirección",
+      invoice.service?.name || "Servicio no especificado",
+      invoice.type || "Factura",
+      invoice.issue_date ? new Date(invoice.issue_date).toLocaleDateString() : "Sin fecha",
+      invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : "Sin fecha",
+      `S/. ${parseFloat(invoice.amount || 0).toFixed(2)}`,
+      `S/. ${parseFloat(invoice.paid_amount || 0).toFixed(2)}`,
+      `S/. ${(parseFloat(invoice.amount || 0) - parseFloat(invoice.paid_amount || 0)).toFixed(2)}`,
+      invoice.document || "Sin documento",
+      invoice.status || "Pendiente"
+    ];
+
+    const excelData = [headers, invoiceData];
+
+    // Crear el libro de Excel
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+
+    // Configurar ancho de columnas
+    const columnWidths = [
+      { width: 15 }, // N° Documento
+      { width: 25 }, // Cliente
+      { width: 15 }, // RUC/DNI
+      { width: 15 }, // Teléfono
+      { width: 25 }, // Email
+      { width: 30 }, // Dirección
+      { width: 25 }, // Servicio
+      { width: 15 }, // Tipo Documento
+      { width: 15 }, // Fecha Emisión
+      { width: 15 }, // Fecha Vencimiento
+      { width: 12 }, // Monto
+      { width: 12 }, // Pagado
+      { width: 12 }, // Pendiente
+      { width: 20 }, // Documento
+      { width: 12 }  // Estado
+    ];
+    
+    worksheet['!cols'] = columnWidths;
+
+    // Agregar la hoja al libro
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Detalle_Pago");
+
+    // Generar el nombre del archivo
+    const fileName = `pago_${invoice.number || invoiceId}_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+    // Descargar el archivo
+    XLSX.writeFile(workbook, fileName);
+
+    showToast("success", "Éxito", "Archivo Excel generado correctamente");
+    console.log("Factura exportada exitosamente");
+
+  } catch (error) {
+    console.error("Error exportando factura:", error);
+    showToast("error", "Error", "No se pudo exportar la factura");
   }
 }
 
