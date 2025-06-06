@@ -5505,6 +5505,45 @@ exportServicesToExcel = async function() {
 
 // Funciones de Proformas (Invoices)
 // Implementación de loadInvoicesData (variable declarada al inicio del archivo)
+// Función para ordenar facturas por urgencia
+function sortInvoicesByUrgency(invoices) {
+  return invoices.sort((a, b) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const dueDateA = new Date(a.dueDate);
+    dueDateA.setHours(0, 0, 0, 0);
+    
+    const dueDateB = new Date(b.dueDate);
+    dueDateB.setHours(0, 0, 0, 0);
+    
+    // Calcular días desde/hasta vencimiento (negativo = vencido, positivo = por vencer)
+    const daysA = Math.floor((dueDateA - today) / (1000 * 60 * 60 * 24));
+    const daysB = Math.floor((dueDateB - today) / (1000 * 60 * 60 * 24));
+    
+    // Si ambas están pagadas, mantener orden original
+    if ((a.status === 'pagada' || a.status === 'pagado') && (b.status === 'pagada' || b.status === 'pagado')) {
+      return 0;
+    }
+    
+    // Si una está pagada y otra no, la no pagada va primero
+    if (a.status === 'pagada' || a.status === 'pagado') return 1;
+    if (b.status === 'pagada' || b.status === 'pagado') return -1;
+    
+    // Si ambas están vencidas (días negativos), la más vencida va primero
+    if (daysA < 0 && daysB < 0) {
+      return daysA - daysB; // Más negativo (más vencido) va primero
+    }
+    
+    // Si una está vencida y otra no, la vencida va primero
+    if (daysA < 0 && daysB >= 0) return -1;
+    if (daysA >= 0 && daysB < 0) return 1;
+    
+    // Si ambas están por vencer (días positivos), la más próxima va primero
+    return daysA - daysB;
+  });
+}
+
 loadInvoicesData = async function() {
   try {
     // Configurar event listener del botón de exportar como respaldo
@@ -5555,8 +5594,8 @@ loadInvoicesData = async function() {
       console.log('¿La primera factura tiene payments?', result.data[0].payments);
     }
 
-    // Actualizar variable global con datos de la API
-    filteredInvoices = [...result.data];
+    // Actualizar variable global con datos ordenados por urgencia
+    filteredInvoices = sortInvoicesByUrgency([...result.data]);
 
     // Cargar opciones de filtros y renderizar tabla
     await loadInvoiceFilterOptions();
@@ -6027,8 +6066,8 @@ applyInvoiceFilters = async function() {
     console.log('Resultado de filtros:', result);
     
     if (result && result.data) {
-      filteredInvoices = result.data;
-      console.log('Facturas filtradas:', filteredInvoices.length);
+      filteredInvoices = sortInvoicesByUrgency([...result.data]);
+      console.log('Facturas filtradas y ordenadas:', filteredInvoices.length);
       if (filteredInvoices.length > 0) {
         console.log('Ejemplo de factura filtrada:', filteredInvoices[0]);
       }
@@ -6037,8 +6076,8 @@ applyInvoiceFilters = async function() {
       updateInvoicePagination();
     } else if (result) {
       // Si la respuesta no tiene .data, usar directamente el resultado
-      filteredInvoices = result;
-      console.log('Facturas filtradas (sin .data):', filteredInvoices.length);
+      filteredInvoices = sortInvoicesByUrgency([...result]);
+      console.log('Facturas filtradas y ordenadas (sin .data):', filteredInvoices.length);
       currentInvoicePage = 1;
       renderInvoicesTable();
       updateInvoicePagination();
@@ -6545,12 +6584,15 @@ function addEventsToCalendarDay(container, date) {
         if (diffDays <= 0) {
           eventElement.className = "day-event event-danger";
           eventElement.textContent = `${event.description} - Vence hoy`;
-        } else if (diffDays <= 5) {
+        } else if (diffDays >= 1 && diffDays <= 5) {
+          eventElement.className = "day-event event-danger";
+          eventElement.textContent = `${event.description} - ${diffDays}d`;
+        } else if (diffDays >= 6 && diffDays <= 14) {
           eventElement.className = "day-event event-warning";
           eventElement.textContent = `${event.description} - ${diffDays}d`;
-        } else {
-          eventElement.className = "day-event event-payment";
-          eventElement.textContent = event.description;
+        } else if (diffDays >= 15) {
+          eventElement.className = "day-event event-info";
+          eventElement.textContent = `${event.description} - ${diffDays}d`;
         }
       }
     } else if (event.type === "partial-payment") {
@@ -6562,12 +6604,15 @@ function addEventsToCalendarDay(container, date) {
       if (diffDays <= 0) {
         eventElement.className = "day-event event-danger";
         eventElement.textContent = `${event.title} - Hoy`;
-      } else if (diffDays <= 5) {
+      } else if (diffDays >= 1 && diffDays <= 5) {
+        eventElement.className = "day-event event-danger";
+        eventElement.textContent = `${event.title} - ${diffDays}d`;
+      } else if (diffDays >= 6 && diffDays <= 14) {
         eventElement.className = "day-event event-warning";
         eventElement.textContent = `${event.title} - ${diffDays}d`;
-      } else {
-        eventElement.className = "day-event event-payment";
-        eventElement.textContent = event.title;
+      } else if (diffDays >= 15) {
+        eventElement.className = "day-event event-info";
+        eventElement.textContent = `${event.title} - ${diffDays}d`;
       }
     }
     eventElement.addEventListener("click", (e) => {
