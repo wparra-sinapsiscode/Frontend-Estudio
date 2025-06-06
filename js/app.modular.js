@@ -2010,24 +2010,85 @@ function setupViewEventListeners(sectionName) {
         console.log("⚠️ DEBUG: invoice-client select no encontrado (se agregará cuando se abra el modal)");
       }
       
-      // Event listener para los botones de acción en la tabla
+      // Event listener para los botones de acción en la tabla y clicks en filas
       const invoicesTable = document.getElementById('invoices-table');
       if (invoicesTable) {
         invoicesTable.addEventListener('click', async (e) => {
+          // Prevenir propagación para evitar conflictos con otros event listeners
+          e.stopPropagation();
+          
           const btn = e.target.closest('.action-btn');
-          if (!btn) return;
           
-          const action = btn.dataset.action;
-          const invoiceId = btn.dataset.invoiceId;
-          
-          if (action === 'tracking') {
-            // Obtener datos de la factura desde la fila
-            const row = btn.closest('tr');
-            const clientName = row.cells[1].textContent;
-            const invoiceNumber = row.cells[0].textContent;
-            const pendingAmount = parseFloat(row.cells[7].textContent.replace('S/. ', ''));
+          // Si es un botón de acción, manejar según la acción
+          if (btn) {
+            const action = btn.dataset.action;
+            const invoiceId = btn.dataset.invoiceId;
             
-            openTrackingModal(invoiceId, clientName, invoiceNumber, pendingAmount);
+            console.log(`🔍 Click en botón de acción: ${action} para factura: ${invoiceId}`);
+            
+            if (action === 'tracking') {
+              // Obtener datos de la factura desde la fila
+              const row = btn.closest('tr');
+              const clientName = row.cells[1].textContent;
+              const invoiceNumber = row.cells[0].textContent;
+              const pendingAmount = parseFloat(row.cells[7].textContent.replace('S/. ', ''));
+              
+              openTrackingModal(invoiceId, clientName, invoiceNumber, pendingAmount);
+            } else if (action === 'view') {
+              // Botón del ojo - abrir historial
+              if (typeof viewInvoice === 'function') {
+                viewInvoice(invoiceId);
+              }
+            } else if (action === 'edit') {
+              // Botón editar - abrir modal de editar factura
+              if (typeof openInvoiceModal === 'function') {
+                openInvoiceModal(invoiceId);
+              }
+            } else if (action === 'payment') {
+              // Botón de pago - abrir modal de registrar pago
+              if (typeof openPartialPaymentModal === 'function') {
+                openPartialPaymentModal(invoiceId);
+              }
+            } else if (action === 'delete') {
+              // Botón eliminar - abrir modal de confirmación
+              if (typeof confirmDeleteInvoice === 'function') {
+                confirmDeleteInvoice(invoiceId);
+              }
+            } else if (action === 'whatsapp') {
+              // Botón WhatsApp - enviar factura
+              if (typeof sendInvoiceByWhatsApp === 'function') {
+                sendInvoiceByWhatsApp(invoiceId);
+              }
+            } else if (action === 'download') {
+              // Botón descargar - descargar documento
+              if (typeof downloadInvoiceDocument === 'function') {
+                downloadInvoiceDocument(invoiceId);
+              }
+            } else if (action === 'export') {
+              // Botón exportar - exportar a Excel
+              if (typeof exportInvoicesToExcel === 'function') {
+                exportInvoicesToExcel();
+              }
+            }
+            return;
+          }
+          
+          // Si no es un botón de acción, verificar si se hizo click en una fila
+          const row = e.target.closest('tr');
+          if (row && row.parentElement.tagName === 'TBODY') {
+            // Buscar un botón con invoice-id en esta fila para obtener el ID
+            const invoiceBtn = row.querySelector('[data-invoice-id]');
+            if (invoiceBtn) {
+              const invoiceId = invoiceBtn.dataset.invoiceId;
+              console.log('🔍 Click en fila - Abriendo modal de registrar pago para factura:', invoiceId);
+              
+              // Abrir modal de registrar pago
+              if (typeof openPartialPaymentModal === 'function') {
+                openPartialPaymentModal(invoiceId);
+              } else {
+                console.error('Función openPartialPaymentModal no encontrada');
+              }
+            }
           }
         });
       }
@@ -4430,7 +4491,7 @@ function handleContractedServiceData(cs, eventTitleEl, eventDetailsEl) {
               <button class="btn btn-success" onclick="openInvoiceModal(null, ${JSON.stringify(
                 cs
               ).replace(/"/g, "&quot;")})">
-                  <i class="fas fa-file-invoice"></i> Generar Factura
+                  <i class="fas fa-file-invoice"></i> Generar pago
               </button>
           </div>
       `;
@@ -6548,16 +6609,31 @@ showEventDetails = function(event) {
         ? "Vence hoy"
         : `Vence en ${diffDays} días`;
     const pendingAmount = event.amount - (event.paidAmount || 0);
+    
+    // Intentar extraer el nombre del servicio de múltiples fuentes
+    let serviceName = event.serviceName || event.service;
+    if (!serviceName && event.description) {
+      // Si el servicio viene en la descripción como "Cliente: X - Servicio"
+      const descParts = event.description.split(' - ');
+      if (descParts.length > 1) {
+        serviceName = descParts[1];
+      }
+    }
+    if (!serviceName && event.title) {
+      // Si el servicio viene en el título como "Factura: Cliente - Servicio"
+      const titleParts = event.title.split(' - ');
+      if (titleParts.length > 1) {
+        serviceName = titleParts[1];
+      }
+    }
+    
     details = `
-            <div class="event-detail-item"><div class="label">Tipo</div><div class="value">Vencimiento Proforma</div></div>
-            <div class="event-detail-item"><div class="label">Proforma</div><div class="value">${
-              event.invoiceNumber || "N/A"
-            }</div></div>
+            <div class="event-detail-item"><div class="label">Tipo</div><div class="value">Vencimiento Factura</div></div>
             <div class="event-detail-item"><div class="label">Cliente</div><div class="value">${
               event.clientName || "N/A"
             }</div></div>
             <div class="event-detail-item"><div class="label">Servicio</div><div class="value">${
-              event.serviceName || "N/A"
+              serviceName || "N/A"
             }</div></div>
             <div class="event-detail-item"><div class="label">Monto Total</div><div class="value">S/. ${event.amount.toFixed(
               2
@@ -6573,10 +6649,10 @@ showEventDetails = function(event) {
             ).toLocaleDateString()}</div></div>
             <div class="event-detail-item"><div class="label">Estado</div><div class="value">${statusText}</div></div>
             <div class="event-detail-item"><div class="label">Acciones</div><div class="value">
-                <button class="btn btn-primary btn-sm" onclick="openInvoiceModal(${
+                <button class="btn btn-primary btn-sm" onclick="openPartialPaymentModal(${
                   event.invoiceId
                 })">Editar</button> 
-                <button class="btn btn-success btn-sm" onclick="openPartialPaymentModal(${
+                <button class="btn btn-success btn-sm" onclick="openInvoiceModal(${
                   event.invoiceId
                 })">Reg. Pago</button>
             </div></div>`;
@@ -7229,7 +7305,7 @@ async function loadDashboardComponents() {
     // Configurar listeners DESPUÉS de que los componentes estén en el DOM
     setupComponentEventListeners(); // Para sidebar, header (que ya deberían estar cargados)
     setupModalEventListeners(); // Para todos los modales (que ya deberían estar cargados)
-    setupInvoiceActionListeners(); // Para los botones de acción de facturas
+    // setupInvoiceActionListeners(); // Deshabilitado - ahora se maneja en el event listener específico de la tabla
 
     // Adjuntar listener para búsqueda global si el header ya está cargado
     const globalSearchInput = document.getElementById("global-search");
